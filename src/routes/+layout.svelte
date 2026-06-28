@@ -16,7 +16,7 @@
 <div class="min-h-screen flex flex-col">
 	<header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
 		<div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-			<a href="/" class="font-bold text-primary-600 dark:text-primary-400 text-lg tracking-tight">
+			<a href="/" class="font-killgothic font-bold text-primary-600 dark:text-primary-400 text-lg">
 				{$t('app.name')}
 			</a>
 			<nav class="flex items-center gap-3 text-sm">
@@ -47,6 +47,6 @@
 	</main>
 
 	<footer class="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
-		<p>{$t('app.name')} &copy; {new Date().getFullYear()}</p>
+		<p class="font-killgothic">{$t('app.name')} / {new Date().getFullYear()}</p>
 	</footer>
 </div>

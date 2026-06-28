@@ -12,8 +12,8 @@
 
 <!-- ヒーロー -->
 <section class="bg-linear-to-b from-primary-50 to-white dark:from-slate-900 dark:to-slate-950 py-20 px-4 text-center">
-	<h1 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight">
-		{$t('landing.hero_title')}
+	<h1 class="font-killgothic text-6xl md:text-8xl font-bold text-primary-600 dark:text-primary-400 mb-8">
+		{$t('app.name')}
 	</h1>
 	<p class="text-slate-500 dark:text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}

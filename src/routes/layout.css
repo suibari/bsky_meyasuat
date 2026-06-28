@@ -1,11 +1,26 @@
 @import 'tailwindcss';
+
+@font-face {
+	font-family: 'GN-KillGothic-NA';
+	src: url('/fonts/GN-KillGothic-U-KanaNA.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
+	font-display: swap;
+}
+
 @import '@fontsource/inter/400.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/noto-sans-jp/400.css';
 @import '@fontsource/noto-sans-jp/700.css';
 
+@utility font-killgothic {
+	font-family: var(--font-title);
+	letter-spacing: 0.1em;
+}
+
 @theme {
 	--font-sans: 'Inter', 'Noto Sans JP', ui-sans-serif, system-ui, sans-serif;
+	--font-title: 'GN-KillGothic-NA', 'Noto Sans JP', ui-sans-serif, sans-serif;
 
 	--color-primary-50: #f0f9ff;
 	--color-primary-100: #e0f2fe;
