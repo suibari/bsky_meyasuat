@@ -1,0 +1,27 @@
+import type { PageServerLoad } from './$types';
+import { getMessages, countUnread } from '$lib/server/db.js';
+import { r2KeyToUrl } from '$lib/server/r2.js';
+
+export const load: PageServerLoad = async ({ locals, platform, url }) => {
+	const env = platform?.env;
+	const user = locals.user!;
+	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
+	const limit = 20;
+
+	const [messages, unreadCount] = await Promise.all([
+		env ? getMessages(env, user.did, { limit, offset: page * limit }) : [],
+		env ? countUnread(env, user.did) : 0
+	]);
+
+	const enriched = messages.map((m) => ({
+		...m,
+		imageUrls: env ? m.imageKeys.map((k) => r2KeyToUrl(env, k)) : []
+	}));
+
+	return {
+		messages: enriched,
+		unreadCount,
+		page,
+		appUrl: env?.PUBLIC_APP_URL ?? ''
+	};
+};

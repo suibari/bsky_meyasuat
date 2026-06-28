@@ -1,1 +1,39 @@
 @import 'tailwindcss';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/noto-sans-jp/400.css';
+@import '@fontsource/noto-sans-jp/700.css';
+
+@theme {
+	--font-sans: 'Inter', 'Noto Sans JP', ui-sans-serif, system-ui, sans-serif;
+
+	--color-primary-50: #f0f9ff;
+	--color-primary-100: #e0f2fe;
+	--color-primary-200: #bae6fd;
+	--color-primary-300: #7dd3fc;
+	--color-primary-400: #38bdf8;
+	--color-primary-500: #0ea5e9;
+	--color-primary-600: #0284c7;
+	--color-primary-700: #0369a1;
+	--color-primary-800: #075985;
+	--color-primary-900: #0c4a6e;
+	--color-primary-950: #082f49;
+
+	--color-accent-400: #fb7185;
+	--color-accent-500: #f43f5e;
+}
+
+@layer base {
+	html {
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	body {
+		@apply bg-slate-50 text-slate-900 transition-colors duration-200;
+	}
+
+	html.dark body {
+		@apply bg-slate-950 text-slate-50;
+	}
+}

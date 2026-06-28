@@ -12,7 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@cloudflare/workers-types": "^4.20260628.1",
+		"@sveltejs/adapter-cloudflare": "^7.2.9",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.3.0",
@@ -20,6 +21,18 @@
 		"svelte-check": "^4.6.0",
 		"tailwindcss": "^4.3.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.16"
+		"vite": "^8.0.16",
+		"wrangler": "^4.105.0"
+	},
+	"dependencies": {
+		"@atproto/api": "^0.20.22",
+		"@atproto/oauth-client-browser": "^0.4.3",
+		"@fontsource/inter": "^5.2.8",
+		"@fontsource/noto-sans-jp": "^5.2.9",
+		"@resvg/resvg-wasm": "^2.6.2",
+		"aws4fetch": "^1.0.20",
+		"satori": "^0.26.0",
+		"svelte-i18n": "^4.0.1",
+		"svelte-turnstile": "^0.11.0"
 	}
 }

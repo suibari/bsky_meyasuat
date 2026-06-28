@@ -1,0 +1,13 @@
+name = "bsky-meyasuat"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".svelte-kit/cloudflare"
+
+[vars]
+PUBLIC_APP_URL = "https://meyasuat.pages.dev"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "meyasuat-images"
+preview_bucket_name = "meyasuat-images-preview"
+
