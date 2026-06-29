@@ -1,8 +1,8 @@
 {
-	"client_id": "https://meyasuat.pages.dev/oauth/client-metadata.json",
+	"client_id": "https://meyasuat.suibari.com/oauth/client-metadata.json",
 	"client_name": "めやすあっと",
-	"client_uri": "https://meyasuat.pages.dev",
-	"redirect_uris": ["https://meyasuat.pages.dev/oauth/callback"],
+	"client_uri": "https://meyasuat.suibari.com",
+	"redirect_uris": ["https://meyasuat.suibari.com/oauth/callback"],
 	"scope": "atproto transition:generic",
 	"grant_types": ["authorization_code", "refresh_token"],
 	"response_types": ["code"],
