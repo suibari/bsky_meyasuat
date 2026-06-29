@@ -182,11 +182,12 @@ export async function createMessage(
 export async function getMessages(
 	env: Env,
 	creatorDid: string,
-	opts: { limit?: number; offset?: number; unreadOnly?: boolean } = {}
+	opts: { limit?: number; offset?: number; unreadOnly?: boolean; readOnly?: boolean } = {}
 ): Promise<Message[]> {
-	const { limit = 20, offset = 0, unreadOnly = false } = opts;
+	const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
 	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	if (unreadOnly) url += '&is_read=eq.false';
+	if (readOnly) url += '&is_read=eq.true';
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];
@@ -207,6 +208,20 @@ export async function markMessageRead(env: Env, id: string, creatorDid: string):
 	await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
 		{ method: 'PATCH', headers: headers(env), body: JSON.stringify({ is_read: true }) }
+	);
+}
+
+export async function markMessageUnread(env: Env, id: string, creatorDid: string): Promise<void> {
+	await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		{ method: 'PATCH', headers: headers(env), body: JSON.stringify({ is_read: false }) }
+	);
+}
+
+export async function deleteMessage(env: Env, id: string, creatorDid: string): Promise<void> {
+	await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		{ method: 'DELETE', headers: headers(env) }
 	);
 }
 

@@ -7,13 +7,19 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const user = locals.user;
 	// Cookie 未送信などで user が無い場合は 500 にせず空で返す（layout が /signin へリダイレクト）
 	if (!user) {
-		return { messages: [], unreadCount: 0, page: 0, appUrl: env?.PUBLIC_APP_URL ?? '' };
+		return { messages: [], unreadCount: 0, page: 0, tab: 'unread', appUrl: env?.PUBLIC_APP_URL ?? '' };
 	}
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
+	const tab = url.searchParams.get('tab') === 'read' ? 'read' : 'unread';
 	const limit = 20;
 
 	const [messages, unreadCount] = await Promise.all([
-		env ? getMessages(env, user.did, { limit, offset: page * limit }) : [],
+		env ? getMessages(env, user.did, {
+			limit,
+			offset: page * limit,
+			unreadOnly: tab === 'unread',
+			readOnly: tab === 'read'
+		}) : [],
 		env ? countUnread(env, user.did) : 0
 	]);
 
@@ -26,6 +32,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		messages: enriched,
 		unreadCount,
 		page,
+		tab,
 		appUrl: env?.PUBLIC_APP_URL ?? ''
 	};
 };

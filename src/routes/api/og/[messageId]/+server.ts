@@ -1,16 +1,41 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid } from '$lib/server/db.js';
-import satori from 'satori';
-import { Resvg, initWasm } from '@resvg/resvg-wasm';
+import satori, { init as initSatori } from 'satori/standalone';
+import { Resvg, initWasm as initResvg } from '@resvg/resvg-wasm';
 
-let wasmReady = false;
+let initialized = false;
 
-async function ensureWasm(appUrl: string): Promise<void> {
-	if (wasmReady) return;
-	const res = await fetch(`${appUrl}/resvg.wasm`);
-	await initWasm(res);
-	wasmReady = true;
+// 本番(Cloudflare)では _worker.js に注入された事前コンパイル済みの
+// WebAssembly.Module を globalThis 経由で受け取る。dev(Node)では
+// node:fs から bytes を読んで初期化する(本番ビルドでは import.meta.env.DEV が
+// false に置換され、この分岐ごと dead-code 除去される)。
+async function ensureInit(): Promise<void> {
+	if (initialized) return;
+	let resvgInput: any = (globalThis as any).__OG_RESVG_WASM;
+	let yogaInput: any = (globalThis as any).__OG_YOGA_WASM;
+	if (import.meta.env.DEV) {
+		const { readFile } = await import('node:fs/promises');
+		const { createRequire } = await import('node:module');
+		const req = createRequire(import.meta.url);
+		resvgInput = await readFile(req.resolve('@resvg/resvg-wasm/index_bg.wasm'));
+		yogaInput = await readFile(req.resolve('satori/yoga.wasm'));
+	}
+	await initResvg(resvgInput);
+	await initSatori(yogaInput);
+	initialized = true;
+}
+
+let fontCache: { noto: ArrayBuffer; kill: ArrayBuffer } | null = null;
+
+async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; kill: ArrayBuffer }> {
+	if (fontCache) return fontCache;
+	const [noto, kill] = await Promise.all([
+		fetch(`${appUrl}/fonts/NotoSansJP-Regular.ttf`).then((r) => r.arrayBuffer()),
+		fetch(`${appUrl}/fonts/GN-KillGothic-U-KanaNA.ttf`).then((r) => r.arrayBuffer())
+	]);
+	fontCache = { noto, kill };
+	return fontCache;
 }
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
@@ -25,11 +50,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
 	const creator = await getUserByDid(env, message.creatorDid);
 
-	await ensureWasm(appUrl);
-
-	// フォントを取得
-	const fontRes = await fetch(`${appUrl}/fonts/NotoSansJP-subset.woff2`);
-	const fontData = fontRes.ok ? await fontRes.arrayBuffer() : new ArrayBuffer(0);
+	await ensureInit();
+	const fonts = await loadFonts(appUrl);
 
 	const body =
 		message.body.length > 140 ? message.body.slice(0, 140) + '…' : message.body;
@@ -60,7 +82,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								lineHeight: 1.7,
 								maxWidth: '1000px',
 								textAlign: 'center',
-								wordBreak: 'break-all'
+								wordBreak: 'break-all',
+								fontFamily: '"Noto Sans JP"'
 							},
 							children: body
 						}
@@ -68,7 +91,12 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 					{
 						type: 'div',
 						props: {
-							style: { fontSize: '22px', color: '#a5b4fc', marginTop: '48px' },
+							style: {
+								fontSize: '22px',
+								color: '#a5b4fc',
+								marginTop: '48px',
+								fontFamily: '"KillGothic"'
+							},
 							children: `@${handle} へのめやすあっと`
 						}
 					},
@@ -79,7 +107,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								fontSize: '16px',
 								color: '#6366f1',
 								marginTop: '12px',
-								letterSpacing: '0.05em'
+								letterSpacing: '0.05em',
+								fontFamily: '"KillGothic"'
 							},
 							children: 'meyasuat.pages.dev'
 						}
@@ -90,9 +119,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 		{
 			width: 1200,
 			height: 630,
-			fonts: fontData.byteLength > 0
-				? [{ name: 'Noto Sans JP', data: fontData, weight: 400, style: 'normal' }]
-				: []
+			fonts: [
+				{ name: 'Noto Sans JP', data: fonts.noto, weight: 400, style: 'normal' },
+				{ name: 'KillGothic', data: fonts.kill, weight: 400, style: 'normal' }
+			]
 		}
 	);
 
