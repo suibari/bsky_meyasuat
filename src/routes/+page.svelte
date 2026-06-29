@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { PUBLIC_APP_URL } from '$env/static/public';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -17,12 +18,17 @@
 <svelte:head>
 	<title>{$t('app.name')} - {$t('app.tagline')}</title>
 	<meta name="description" content={$t('app.description')} />
+	<meta property="og:image" content="{PUBLIC_APP_URL}/ogp.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content="{PUBLIC_APP_URL}/ogp.png" />
 </svelte:head>
 
 <!-- ヒーロー -->
 <section class="bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
-	<h1 class="font-killgothic text-4xl sm:text-6xl md:text-8xl font-bold text-white mb-8 whitespace-nowrap">
-		{$t('app.name')}
+	<h1 class="mb-8">
+		<img src="/title.png" alt={$t('app.name')} class="w-full sm:w-auto sm:h-20 md:h-28 mx-auto" />
 	</h1>
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}
