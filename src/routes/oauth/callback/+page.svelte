@@ -6,6 +6,8 @@
 
 	let { data }: { data: PageData } = $props();
 	let error = $state('');
+	let formEl: HTMLFormElement;
+	let didInput: HTMLInputElement;
 
 	function isLocalhost(url: string): boolean {
 		return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
@@ -24,16 +26,11 @@
 				handleResolver: 'https://bsky.social'
 			});
 			const result = await client.callback(new URLSearchParams(location.hash.slice(1)));
-			const session = result.session;
 
-			const res = await fetch('/api/auth/session', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ did: session.did })
-			});
-
-			if (!res.ok) throw new Error('Session creation failed');
-			location.href = '/dashboard';
+			// ネイティブフォームを POST し、サーバーが Set-Cookie + 302 /dashboard を
+			// 同一レスポンスで返すことで、Cookie 設定とナビゲーションを原子的に行う。
+			didInput.value = result.session.did;
+			formEl.submit();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unknown error';
 		}
@@ -43,6 +40,11 @@
 <svelte:head>
 	<title>{$t('app.name')}</title>
 </svelte:head>
+
+<!-- ネイティブ POST 用の隠しフォーム（サーバーアクションでセッション作成 + リダイレクト） -->
+<form method="POST" bind:this={formEl} style="display:none">
+	<input type="hidden" name="did" bind:this={didInput} />
+</form>
 
 <div class="max-w-sm mx-auto px-4 py-16 text-center">
 	{#if error}

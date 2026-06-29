@@ -4,7 +4,11 @@ import { r2KeyToUrl } from '$lib/server/r2.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const env = platform?.env;
-	const user = locals.user!;
+	const user = locals.user;
+	// Cookie 未送信などで user が無い場合は 500 にせず空で返す（layout が /signin へリダイレクト）
+	if (!user) {
+		return { messages: [], unreadCount: 0, page: 0, appUrl: env?.PUBLIC_APP_URL ?? '' };
+	}
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
 	const limit = 20;
 
