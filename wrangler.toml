@@ -4,7 +4,7 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".svelte-kit/cloudflare"
 
 [vars]
-PUBLIC_APP_URL = "https://meyasuat.pages.dev"
+PUBLIC_APP_URL = "https://meyasuat.suibari.com"
 
 [[r2_buckets]]
 binding = "R2"
