@@ -28,7 +28,11 @@
 <!-- ヒーロー -->
 <section class="bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
 	<h1 class="mb-8">
-		<img src="/title.png" alt={$t('app.name')} class="w-full sm:w-auto sm:h-20 md:h-28 mx-auto" />
+		{#if data.lang === 'ja'}
+			<img src="/title.png" alt={$t('app.name')} class="w-full sm:w-auto sm:h-20 md:h-28 mx-auto" />
+		{:else}
+			<span class="font-killgothic text-5xl sm:text-6xl md:text-8xl font-bold text-white whitespace-nowrap">{$t('app.name')}</span>
+		{/if}
 	</h1>
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}

@@ -17,7 +17,11 @@
 	<header class="border-b border-slate-800 bg-slate-900">
 		<div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
 			<a href="/">
-				<img src="/title-nav.png" alt={$t('app.name')} class="h-5 w-auto" />
+				{#if lang === 'ja'}
+					<img src="/title-nav.png" alt={$t('app.name')} class="h-5 w-auto" />
+				{:else}
+					<span class="font-killgothic font-bold text-primary-400 text-lg">{$t('app.name')}</span>
+				{/if}
 			</a>
 			<nav class="flex items-center gap-3 text-sm">
 				<LanguageSwitcher lang={lang} size="sm" />
