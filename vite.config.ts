@@ -23,6 +23,6 @@ export default defineConfig({
 		exclude: ['@resvg/resvg-wasm']
 	},
 	ssr: {
-		noExternal: ['svelte-i18n', 'svelte-turnstile']
+		noExternal: ['svelte-i18n', 'svelte-turnstile', '@atproto/api']
 	}
 });
