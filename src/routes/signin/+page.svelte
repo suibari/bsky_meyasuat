@@ -62,26 +62,26 @@
 
 <div class="max-w-sm mx-auto px-4 py-16">
 	<div class="text-center mb-8">
-		<h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+		<h1 class="text-2xl font-bold text-slate-100 mb-2">
 			{$t('signin.title')}
 		</h1>
-		<p class="text-slate-500 dark:text-slate-400 text-sm">
+		<p class="text-slate-400 text-sm">
 			{$t('signin.description')}
 		</p>
 	</div>
 
-	<div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+	<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm">
 		{#if loading}
-			<div class="text-center py-4 text-slate-500 dark:text-slate-400">
+			<div class="text-center py-4 text-slate-400">
 				<div class="inline-block w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mb-2"></div>
 				<p class="text-sm">{$t('signin.loading')}</p>
 			</div>
 		{:else}
 			{#if error}
-				<p class="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>
+				<p class="mb-4 text-sm text-red-400 bg-red-950 rounded-lg px-3 py-2">{error}</p>
 			{/if}
 			<form onsubmit={(e) => { e.preventDefault(); signin(); }}>
-				<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5" for="handle">
+				<label class="block text-sm font-medium text-slate-300 mb-1.5" for="handle">
 					{$t('signin.handle_label')}
 				</label>
 				<input
@@ -90,7 +90,7 @@
 					bind:value={handle}
 					placeholder={$t('signin.handle_placeholder')}
 					autocomplete="username"
-					class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 mb-4"
+					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 mb-4"
 				/>
 				<button
 					type="submit"

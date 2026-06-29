@@ -35,6 +35,7 @@
 	"dashboard.empty_sub": "Share your message box URL to get started",
 	"dashboard.unread": "{count} unread",
 	"dashboard.reply": "Reply on Bluesky",
+	"dashboard.reply_on_x": "Reply on X",
 	"dashboard.mark_read": "Mark as read",
 	"dashboard.your_url": "Your message box URL",
 	"dashboard.copy": "Copy",
@@ -51,10 +52,12 @@
 	"settings.saved": "Saved!",
 	"message.sent_at": "Received on {date}",
 	"message.reply_on_bluesky": "Reply on Bluesky",
+	"message.reply_on_x": "Reply on X",
 	"message.no_images": "No images",
 	"landing.hero_title": "Send anonymous messages to your favorite Bluesky creators",
 	"landing.hero_sub": "A simple, anonymous message box for the AT Protocol",
-	"landing.cta": "Get started (free)",
+	"landing.cta": "Sign in",
+	"landing.register_bsky": "Register for a Bluesky account",
 	"landing.how_title": "How it works",
 	"landing.how1_title": "Sign in",
 	"landing.how1_desc": "Log in with your Bluesky account",
@@ -64,5 +67,8 @@
 	"landing.how3_desc": "Get instant Bluesky notifications",
 	"not_found.title": "Not found",
 	"not_found.message": "This page does not exist",
-	"error.generic": "Something went wrong"
+	"error.generic": "Something went wrong",
+	"about.link": "About this app",
+	"about.title": "About MeyasuAt",
+	"about.close": "Close"
 }

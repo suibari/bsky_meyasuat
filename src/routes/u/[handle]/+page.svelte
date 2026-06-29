@@ -97,35 +97,37 @@
 <div class="max-w-lg mx-auto px-4 py-10">
 	<!-- クリエイターカード -->
 	<div class="flex items-center gap-3 mb-6">
-		{#if data.creator.avatarUrl}
-			<img src={data.creator.avatarUrl} alt="" class="w-12 h-12 rounded-full object-cover" />
-		{:else}
-			<div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold text-lg">
-				{(data.creator.displayName ?? data.creator.handle)[0].toUpperCase()}
-			</div>
-		{/if}
+		<a href="https://bsky.app/profile/{data.creator.handle}" target="_blank" rel="noopener noreferrer">
+			{#if data.creator.avatarUrl}
+				<img src={data.creator.avatarUrl} alt="" class="w-12 h-12 rounded-full object-cover" />
+			{:else}
+				<div class="w-12 h-12 rounded-full bg-primary-900 flex items-center justify-center text-primary-300 font-bold text-lg">
+					{(data.creator.displayName ?? data.creator.handle)[0].toUpperCase()}
+				</div>
+			{/if}
+		</a>
 		<div>
-			<p class="font-semibold text-slate-900 dark:text-slate-100">
+			<p class="font-semibold text-slate-100">
 				{data.creator.displayName ?? data.creator.handle}
 			</p>
-			<p class="text-sm text-slate-500 dark:text-slate-400">@{data.creator.handle}</p>
+			<p class="text-sm text-slate-400">@{data.creator.handle}</p>
 		</div>
 	</div>
 
 	{#if success}
-		<div class="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-2xl p-8 text-center">
+		<div class="bg-green-950 border border-green-800 rounded-2xl p-8 text-center">
 			<p class="text-2xl mb-2">✉️</p>
-			<p class="font-semibold text-green-800 dark:text-green-200">{$t('submit.success')}</p>
+			<p class="font-semibold text-green-200">{$t('submit.success')}</p>
 		</div>
 	{:else}
-		<div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+		<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm">
 			{#if errorMsg}
-				<p class="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{errorMsg}</p>
+				<p class="mb-4 text-sm text-red-400 bg-red-950 rounded-lg px-3 py-2">{errorMsg}</p>
 			{/if}
 
 			<!-- テキスト -->
 			<div class="mb-4">
-				<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5" for="body">
+				<label class="block text-sm font-medium text-slate-300 mb-1.5" for="body">
 					{$t('submit.body_label')}
 				</label>
 				<textarea
@@ -133,7 +135,7 @@
 					bind:value={body}
 					placeholder={$t('submit.body_placeholder')}
 					rows="5"
-					class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
 				></textarea>
 				<p class="text-right text-xs text-slate-400 mt-1" class:text-red-500={body.length > MAX_CHARS}>
 					{body.length} / {MAX_CHARS}
@@ -142,10 +144,10 @@
 
 			<!-- 画像 -->
 			<div class="mb-4">
-				<p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{$t('submit.images_label')}</p>
+				<p class="text-sm font-medium text-slate-300 mb-2">{$t('submit.images_label')}</p>
 				<div class="flex flex-wrap gap-2 mb-2">
 					{#each images as img, i}
-						<div class="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+						<div class="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-700">
 							<img src={URL.createObjectURL(img)} alt="" class="w-full h-full object-cover" />
 							<button
 								onclick={() => removeImage(i)}
@@ -155,8 +157,8 @@
 						</div>
 					{/each}
 					{#if images.length < MAX_IMAGES}
-						<label class="w-20 h-20 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center cursor-pointer hover:border-primary-400 transition-colors">
-							<span class="text-2xl text-slate-300 dark:text-slate-600">+</span>
+						<label class="w-20 h-20 rounded-lg border-2 border-dashed border-slate-700 flex items-center justify-center cursor-pointer hover:border-primary-400 transition-colors">
+							<span class="text-2xl text-slate-600">+</span>
 							<input type="file" accept="image/jpeg,image/png,image/webp" multiple onchange={onImagePick} class="hidden" />
 						</label>
 					{/if}

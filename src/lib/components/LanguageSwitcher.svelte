@@ -19,7 +19,7 @@
 
 <div
 	role="radiogroup"
-	class="inline-flex items-center rounded-full p-1 gap-0.5 {size === 'sm' ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}"
+	class="inline-flex items-center rounded-full p-1 gap-0.5 {size === 'sm' ? 'bg-slate-700' : 'bg-slate-800 border border-slate-700'}"
 >
 	{#each options as [code, abbr, label]}
 		{@const selected = (pendingLang ?? lang) === code}
@@ -27,7 +27,7 @@
 			role="radio"
 			aria-checked={selected}
 			onclick={() => setLang(code)}
-			class="rounded-full font-semibold transition-colors {size === 'sm' ? 'px-2.5 py-0.5 text-xs' : 'px-4 py-1.5 text-sm'} {selected ? 'bg-white dark:bg-slate-500 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
+			class="rounded-full font-semibold transition-colors {size === 'sm' ? 'px-2.5 py-0.5 text-xs' : 'px-4 py-1.5 text-sm'} {selected ? 'bg-slate-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}"
 		>
 			{size === 'sm' ? abbr : label}
 		</button>

@@ -6,6 +6,15 @@ import { syncUserHandle } from '$lib/server/atproto.js';
 const HOUR_MS = 60 * 60 * 1000;
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// 開発時: localhost と 127.0.0.1 は別オリジン扱いとなり、
+	// OAuth コールバック先（127.0.0.1）とセッション Cookie のオリジンがずれる。
+	// すべて 127.0.0.1 に寄せてオリジンを統一する。
+	if (event.url.hostname === 'localhost') {
+		const url = new URL(event.url);
+		url.hostname = '127.0.0.1';
+		return Response.redirect(url.toString(), 307);
+	}
+
 	const env = event.platform?.env;
 	const ctx = event.platform?.context;
 
@@ -35,6 +44,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 				}
 			}
 		}
+	}
+
+	if (event.locals.user && event.url.pathname === '/') {
+		return Response.redirect(new URL('/dashboard', event.url).toString(), 302);
 	}
 
 	return resolve(event, {

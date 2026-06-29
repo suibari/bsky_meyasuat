@@ -14,30 +14,28 @@
 </script>
 
 <div class="min-h-screen flex flex-col">
-	<header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+	<header class="border-b border-slate-800 bg-slate-900">
 		<div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-			<a href="/" class="font-killgothic font-bold text-primary-600 dark:text-primary-400 text-lg">
+			<a href="/" class="font-killgothic font-bold text-primary-400 text-lg">
 				{$t('app.name')}
 			</a>
 			<nav class="flex items-center gap-3 text-sm">
+				<LanguageSwitcher lang={lang} size="sm" />
 				{#if user}
-					<a href="/dashboard" class="text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-						{$t('nav.dashboard')}
+					<a href="/dashboard/settings" aria-label={$t('nav.settings')} class="block rounded-full ring-2 ring-transparent hover:ring-primary-400 transition-all">
+						{#if user.avatarUrl}
+							<img src={user.avatarUrl} alt={user.displayName ?? user.handle} class="w-7 h-7 rounded-full object-cover" />
+						{:else}
+							<div class="w-7 h-7 rounded-full bg-primary-900 flex items-center justify-center text-primary-300 font-bold text-xs">
+								{(user.displayName ?? user.handle)[0].toUpperCase()}
+							</div>
+						{/if}
 					</a>
-					<a href="/dashboard/settings" class="text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-						{$t('nav.settings')}
-					</a>
-					<form method="POST" action="/api/auth/logout">
-						<button type="submit" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
-							{$t('nav.signout')}
-						</button>
-					</form>
 				{:else}
 					<a href="/signin" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors">
 						{$t('nav.signin')}
 					</a>
 				{/if}
-				<LanguageSwitcher lang={lang} size="sm" />
 			</nav>
 		</div>
 	</header>
@@ -46,7 +44,7 @@
 		{@render children()}
 	</main>
 
-	<footer class="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+	<footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-400">
 		<p class="font-killgothic">{$t('app.name')} / {new Date().getFullYear()}</p>
 	</footer>
 </div>
