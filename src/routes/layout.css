@@ -16,6 +16,8 @@
 @utility font-killgothic {
 	font-family: var(--font-title);
 	letter-spacing: 0.1em;
+	text-rendering: geometricPrecision;
+	-webkit-font-smoothing: antialiased;
 }
 
 @theme {

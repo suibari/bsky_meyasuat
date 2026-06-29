@@ -21,7 +21,7 @@
 
 <!-- ヒーロー -->
 <section class="bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
-	<h1 class="font-killgothic text-6xl md:text-8xl font-bold text-white mb-8">
+	<h1 class="font-killgothic text-4xl sm:text-6xl md:text-8xl font-bold text-white mb-8 whitespace-nowrap">
 		{$t('app.name')}
 	</h1>
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
