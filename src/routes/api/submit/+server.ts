@@ -77,7 +77,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	// Bot 通知 (fire-and-forget)
 	if (creator.notifyEnabled && ctx) {
-		ctx.waitUntil(notifyCreator(env, message.id, creator.did, creator.handle));
+		ctx.waitUntil(
+			notifyCreator(env, message.id, creator.did, creator.handle, creator.boxName, message.senderDid)
+		);
 	}
 
 	return json({ ok: true, messageId: message.id });
