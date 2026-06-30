@@ -341,7 +341,7 @@
 		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{$t('dashboard.share_title')}</h2>
 		
 		<img 
-			src={`/api/og/u/${data.user?.handle}/m/${sharingMessageId}`} 
+			src={`/api/og/${sharingMessageId}`} 
 			alt="OGP" 
 			class="w-full h-auto rounded-xl border border-slate-700 mb-6" 
 		/>
