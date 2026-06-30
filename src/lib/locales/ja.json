@@ -68,7 +68,7 @@
 	"settings.title": "設定",
 	"settings.box_name": "めやすばこの名前",
 	"settings.box_name_description": "送信ページなどに表示される名前です。空欄の場合は「めやすばこ」が使われます。",
-	"settings.box_name_placeholder": "例: 質問箱、イラリク",
+	"settings.box_name_placeholder": "例: 質問箱",
 	"settings.notifications": "通知設定",
 	"settings.notify_enabled": "新着メッセージを Bluesky でお知らせする",
 	"settings.notify_description": "ONにするとめやすあっとbotを自動でフォローします。メッセージを受けると、そのbotからメンションが来ます",
