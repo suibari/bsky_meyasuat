@@ -3,6 +3,29 @@ import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid } from '$lib/server/db.js';
 import { ensureInit, loadFonts, buildQuestionNode, satori, Resvg, fetchImageAsDataUri } from '$lib/server/og.js';
 
+function buildAvatarNode(dataUri: string | null, label: string, size: number) {
+	return dataUri
+		? {
+				type: 'img',
+				props: {
+					src: dataUri,
+					style: { width: `${size}px`, height: `${size}px`, borderRadius: '50%', objectFit: 'cover' }
+				}
+			}
+		: {
+				type: 'div',
+				props: {
+					style: {
+						width: `${size}px`, height: `${size}px`, borderRadius: '50%',
+						background: '#334155', color: '#cbd5e1',
+						display: 'flex', alignItems: 'center', justifyContent: 'center',
+						fontSize: `${Math.round(size / 2)}px`, fontWeight: 'bold'
+					},
+					children: label[0].toUpperCase()
+				}
+			};
+}
+
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	if (!env) error(503, 'Service unavailable');
@@ -23,10 +46,35 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
 
+	// 記名メッセージは上段に送信者バッジが入り使えるスペースが狭くなるため、
+	// 質問文の最大長を短くしてフォントが小さくなりすぎないようにする
+	const bodyLimit = sender ? 110 : 140;
 	const body =
-		message.body.length > 140 ? message.body.slice(0, 140) + '…' : message.body;
-	const handle = creator?.handle ?? 'unknown';
+		message.body.length > bodyLimit ? message.body.slice(0, bodyLimit) + '…' : message.body;
+	const creatorName = creator?.displayName?.trim() || creator?.handle || 'unknown';
 	const boxName = creator?.boxName?.trim() || 'めやすばこ';
+
+	const senderAvatarDataUri = sender?.avatarUrl ? await fetchImageAsDataUri(sender.avatarUrl) : null;
+	const creatorAvatarDataUri = creator?.avatarUrl ? await fetchImageAsDataUri(creator.avatarUrl) : null;
+
+	const headerNode = sender
+		? {
+				type: 'div',
+				props: {
+					style: { display: 'flex', alignItems: 'center', gap: '12px' },
+					children: [
+						buildAvatarNode(senderAvatarDataUri, sender.displayName ?? sender.handle, 48),
+						{
+							type: 'div',
+							props: {
+								style: { fontSize: '28px', color: '#475569', fontFamily: '"Noto Sans JP"' },
+								children: `${((sender.displayName ?? sender.handle).length > 12 ? (sender.displayName ?? sender.handle).slice(0, 12) + '…' : (sender.displayName ?? sender.handle))}さんからのメッセージ`
+							}
+						}
+					]
+				}
+			}
+		: null;
 
 	const svg = await satori(
 		{
@@ -43,6 +91,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 					fontFamily: '"Noto Sans JP", sans-serif'
 				},
 				children: [
+					headerNode,
 					{
 						type: 'div',
 						props: {
@@ -50,9 +99,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								display: 'flex',
 								flex: 1,
 								alignItems: 'center',
-								justifyContent: 'center'
+								justifyContent: 'center',
+								overflow: 'hidden'
 							},
-							children: buildQuestionNode(body)
+							children: buildQuestionNode(body, !!sender)
 						}
 					},
 					{
@@ -67,57 +117,21 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								{
 									type: 'div',
 									props: {
-										style: {
-											display: 'flex',
-											flexDirection: 'column',
-											gap: '8px'
-										},
+										style: { display: 'flex', alignItems: 'center', gap: '16px' },
 										children: [
-											sender ? {
-												type: 'div',
-												props: {
-													style: { display: 'flex', alignItems: 'center', gap: '12px' },
-													children: [
-														sender.avatarUrl ? {
-															type: 'img',
-															props: {
-																src: await fetchImageAsDataUri(sender.avatarUrl),
-																style: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }
-															}
-														} : {
-															type: 'div',
-															props: {
-																style: {
-																	width: '48px', height: '48px', borderRadius: '50%',
-																	background: '#334155', color: '#cbd5e1',
-																	display: 'flex', alignItems: 'center', justifyContent: 'center',
-																	fontSize: '24px', fontWeight: 'bold'
-																},
-																children: (sender.displayName ?? sender.handle)[0].toUpperCase()
-															}
-														},
-														{
-															type: 'div',
-															props: {
-																style: { fontSize: '24px', color: '#cbd5e1', fontFamily: '"Noto Sans JP"' },
-																children: ((sender.displayName ?? sender.handle).length > 12 ? (sender.displayName ?? sender.handle).slice(0, 12) + '…' : (sender.displayName ?? sender.handle))
-															}
-														}
-													]
-												}
-											} : null,
+											buildAvatarNode(creatorAvatarDataUri, creatorName, 48),
 											{
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '22px',
+														fontSize: '24px',
 														color: '#64748b',
 														fontFamily: '"Noto Sans JP"'
 													},
-													children: `@${handle} への${boxName}`
+													children: `${creatorName}の${boxName}`
 												}
 											}
-										].filter(Boolean)
+										]
 									}
 								},
 								{
@@ -134,7 +148,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '22px',
+														fontSize: '32px',
 														fontWeight: 700,
 														color: '#0ea5e9',
 														fontFamily: '"KillGothic"'
@@ -146,7 +160,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '16px',
+														fontSize: '20px',
 														color: '#94a3b8',
 														fontFamily: '"KillGothic"'
 													},
@@ -159,7 +173,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 							]
 						}
 					}
-				]
+				].filter(Boolean)
 			}
 		},
 		{

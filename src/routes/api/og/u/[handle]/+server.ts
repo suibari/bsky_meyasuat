@@ -163,7 +163,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '32px',
+														fontSize: '44px',
 														fontWeight: 700,
 														color: '#0ea5e9',
 														fontFamily: '"KillGothic"'
@@ -175,7 +175,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '24px',
+														fontSize: '28px',
 														color: '#94a3b8',
 														fontFamily: '"KillGothic"'
 													},

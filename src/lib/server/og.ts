@@ -51,9 +51,11 @@ export async function fetchImageAsDataUri(url: string): Promise<string | null> {
 	}
 }
 
-export function buildQuestionNode(body: string) {
+export function buildQuestionNode(body: string, hasHeader = false) {
 	const len = body.length;
-	const fontSize = len <= 30 ? 64 : len <= 60 ? 48 : len <= 100 ? 36 : 28;
+	const fontSize = hasHeader
+		? (len <= 30 ? 56 : len <= 60 ? 40 : len <= 100 ? 32 : 24)
+		: (len <= 30 ? 64 : len <= 60 ? 48 : len <= 100 ? 36 : 28);
 	const emphasize = len > 60;
 	return {
 		type: 'div',

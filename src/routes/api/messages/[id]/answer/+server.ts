@@ -9,6 +9,7 @@ export const POST: RequestHandler = async ({ params, locals, platform, request }
 	const message = await getMessageById(env, params.id);
 	if (!message) error(404, 'Message not found');
 	if (message.creatorDid !== locals.user.did) error(403, 'Forbidden');
+	if (message.answer) error(400, 'Already answered');
 
 	const body = await request.json().catch(() => ({})) as { answer?: string };
 	const answer = (body.answer ?? '').trim();

@@ -203,8 +203,8 @@ export async function getMessages(
 ): Promise<Message[]> {
 	const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
 	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
-	if (unreadOnly) url += '&is_read=eq.false';
-	if (readOnly) url += '&is_read=eq.true';
+	if (unreadOnly) url += '&is_read=eq.false&answer=is.null';
+	if (readOnly) url += '&is_read=eq.true&answer=is.null';
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];

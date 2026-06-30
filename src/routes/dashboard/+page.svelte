@@ -6,6 +6,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let copied = $state(false);
+	let linkCopied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
 	let replyingTo = $state<string | null>(null);
 	let replyText = $state<string>('');
@@ -22,6 +23,12 @@
 		await navigator.clipboard.writeText(boxUrl);
 		copied = true;
 		setTimeout(() => { copied = false; }, 2000);
+	}
+
+	async function copyShareLink(handle: string, messageId: string) {
+		await navigator.clipboard.writeText(`${data.appUrl}/u/${handle}/m/${messageId}`);
+		linkCopied = true;
+		setTimeout(() => { linkCopied = false; }, 2000);
 	}
 
 	async function markRead(id: string) {
@@ -182,12 +189,20 @@
 		>
 			{$t('dashboard.tab_read')}
 		</a>
+		<a
+			href="?tab=answered"
+			class="px-4 py-2 text-sm font-medium transition-colors rounded-t-lg {data.tab === 'answered' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-500 hover:text-slate-300'}"
+		>
+			{$t('dashboard.tab_answered')}
+		</a>
 	</div>
 
 	{#if data.messages.length === 0}
 		<div class="text-center py-16 text-slate-600">
 			<p class="text-4xl mb-3">📭</p>
-			<p class="font-medium">{data.tab === 'read' ? $t('dashboard.empty_read') : $t('dashboard.empty_unread')}</p>
+			<p class="font-medium">
+				{data.tab === 'answered' ? $t('dashboard.empty_answered') : data.tab === 'read' ? $t('dashboard.empty_read') : $t('dashboard.empty_unread')}
+			</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -224,34 +239,43 @@
 						</div>
 					{/if}
 
+					{#if data.tab === 'answered'}
+						<div class="mb-3 pt-3 border-t border-slate-800">
+							<p class="text-xs font-medium text-primary-400 mb-1">{$t('dashboard.your_answer')}</p>
+							<p class="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{msg.answer}</p>
+						</div>
+					{/if}
+
 					<div class="flex flex-wrap items-center justify-between gap-y-2">
 						<p class="text-xs text-slate-600">{formatDate(msg.createdAt)}</p>
-						<div class="flex flex-wrap items-center gap-2">
-							{#if !msg.isRead}
+						{#if data.tab !== 'answered'}
+							<div class="flex flex-wrap items-center gap-2">
+								{#if !msg.isRead}
+									<button
+										onclick={() => markRead(msg.id)}
+										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+									>
+										{$t('dashboard.mark_read')}
+									</button>
+								{:else}
+									<button
+										onclick={() => markUnread(msg.id)}
+										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+									>
+										{$t('dashboard.mark_unread')}
+									</button>
+								{/if}
 								<button
-									onclick={() => markRead(msg.id)}
-									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+									onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
+									class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
 								>
-									{$t('dashboard.mark_read')}
+									{$t('dashboard.answer_button')}
 								</button>
-							{:else}
-								<button
-									onclick={() => markUnread(msg.id)}
-									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-								>
-									{$t('dashboard.mark_unread')}
-								</button>
-							{/if}
-							<button
-								onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
-								class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.answer_button')}
-							</button>
-						</div>
+							</div>
+						{/if}
 					</div>
 
-					{#if replyingTo === msg.id}
+					{#if replyingTo === msg.id && data.tab !== 'answered'}
 						<div class="mt-4 pt-4 border-t border-slate-800">
 							{#if replyError}
 								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
@@ -363,6 +387,16 @@
 			>
 				{$t('dashboard.share_on_x')}
 			</a>
+			<button
+				onclick={() => copyShareLink(data.user?.handle ?? '', sharingMessageId ?? '')}
+				class="flex items-center justify-center gap-2 w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+					<path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+					<path d="M14 11a5 5 0 0 0-7.07 0l-2.83 2.83a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+				</svg>
+				{linkCopied ? $t('dashboard.link_copied') : $t('dashboard.copy_link')}
+			</button>
 		</div>
 		
 		<div class="mt-4 text-center">

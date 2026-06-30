@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getMessages, countUnread, getUserByDid } from '$lib/server/db.js';
+import { getMessages, getAnsweredMessages, countUnread, getUserByDid } from '$lib/server/db.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
@@ -10,16 +10,21 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		return { messages: [], unreadCount: 0, page: 0, tab: 'unread', appUrl: env?.PUBLIC_APP_URL ?? '' };
 	}
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
-	const tab = url.searchParams.get('tab') === 'read' ? 'read' : 'unread';
+	const tabParam = url.searchParams.get('tab');
+	const tab = tabParam === 'read' ? 'read' : tabParam === 'answered' ? 'answered' : 'unread';
 	const limit = 20;
 
 	const [messages, unreadCount] = await Promise.all([
-		env ? getMessages(env, user.did, {
-			limit,
-			offset: page * limit,
-			unreadOnly: tab === 'unread',
-			readOnly: tab === 'read'
-		}) : [],
+		env
+			? tab === 'answered'
+				? getAnsweredMessages(env, user.did, { limit, offset: page * limit })
+				: getMessages(env, user.did, {
+						limit,
+						offset: page * limit,
+						unreadOnly: tab === 'unread',
+						readOnly: tab === 'read'
+					})
+			: [],
 		env ? countUnread(env, user.did) : 0
 	]);
 
