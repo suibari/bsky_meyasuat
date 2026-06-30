@@ -110,7 +110,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								letterSpacing: '0.05em',
 								fontFamily: '"KillGothic"'
 							},
-							children: 'meyasuat.pages.dev'
+							children: 'meyasuat.suibari.com'
 						}
 					}
 				]
