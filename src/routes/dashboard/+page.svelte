@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
+	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
 	import { ogImageUrl, pageShareUrl } from '$lib/utils/share.js';
 	import type { PageData } from './$types';
@@ -124,13 +125,6 @@
 	function onDialogClick(e: MouseEvent) {
 		if ((e.target as HTMLElement).tagName === 'DIALOG') cancelDelete();
 	}
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, {
-			year: 'numeric', month: 'short', day: 'numeric',
-			hour: '2-digit', minute: '2-digit'
-		});
-	}
 </script>
 
 <svelte:head>
@@ -193,122 +187,91 @@
 	{:else}
 		<div class="space-y-3">
 			{#each data.messages as msg (msg.id)}
-				<div class="relative bg-slate-900 rounded-2xl border {msg.isRead ? 'border-slate-800' : 'border-primary-700'} p-5 shadow-sm">
-					<!-- 削除ボタン -->
-					<button
-						onclick={() => confirmDelete(msg.id)}
-						class="absolute top-3 right-3 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-300 transition-colors rounded text-lg leading-none"
-						aria-label={$t('dashboard.delete')}
-					>
-						×
-					</button>
-
-					<div class="flex items-start gap-3 mb-3 pr-6">
-						{#if !msg.isRead}
-							<span class="shrink-0 w-2 h-2 rounded-full bg-primary-500 mt-1.5"></span>
-						{/if}
-						<div class="flex-1 min-w-0">
-							{#if msg.sender}
-								<div class="flex items-center gap-2 mb-1.5">
-									<a href={`/u/${msg.sender.handle}`}>
-										{#if msg.sender.avatarUrl}
-											<img src={msg.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
-										{:else}
-											<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
-												{(msg.sender.displayName ?? msg.sender.handle)[0].toUpperCase()}
-											</div>
-										{/if}
-									</a>
-									<span class="text-xs text-slate-400">
-										<span class="font-medium text-slate-300">{msg.sender.displayName ?? msg.sender.handle}</span> (@{msg.sender.handle})
-									</span>
-								</div>
-							{/if}
-							<p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{msg.body}</p>
-						</div>
-					</div>
-
-					{#if msg.imageUrls.length > 0}
-						<div class="flex gap-2 mb-3 flex-wrap">
-							{#each msg.imageUrls as url}
-								<a href={url} target="_blank" rel="noopener noreferrer">
-									<img src={url} alt="" class="w-24 h-24 object-cover rounded-lg border border-slate-700" />
-								</a>
-							{/each}
-						</div>
-					{/if}
-
-					{#if data.tab === 'answered'}
-						<div class="mb-3 pt-3 border-t border-slate-800">
-							<p class="text-xs font-medium text-primary-400 mb-1">{$t('dashboard.your_answer')}</p>
-							<p class="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{msg.answer}</p>
-						</div>
-					{/if}
-
-					<div class="flex flex-wrap items-center justify-between gap-y-2">
-						<p class="text-xs text-slate-600">{formatDate(msg.createdAt)}</p>
+				<QACard
+					body={msg.body}
+					sender={msg.sender}
+					senderHref={msg.sender ? `/u/${msg.sender.handle}` : undefined}
+					imageUrls={msg.imageUrls}
+					createdAt={msg.createdAt}
+					answer={data.tab === 'answered' ? msg.answer : null}
+					answeredAt={data.tab === 'answered' ? msg.answeredAt : undefined}
+					answererLabel={$t('dashboard.your_answer')}
+					unread={!msg.isRead}
+				>
+					{#snippet topRight()}
+						<button
+							onclick={() => confirmDelete(msg.id)}
+							class="absolute top-3 right-3 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-300 transition-colors rounded text-lg leading-none"
+							aria-label={$t('dashboard.delete')}
+						>
+							×
+						</button>
+					{/snippet}
+					{#snippet actions()}
 						{#if data.tab !== 'answered'}
-							<div class="flex flex-wrap items-center gap-2">
-								{#if !msg.isRead}
+							<div class="mt-4 pt-4 border-t border-slate-800">
+								<div class="flex flex-wrap items-center justify-end gap-2">
+									{#if !msg.isRead}
+										<button
+											onclick={() => markRead(msg.id)}
+											class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+										>
+											{$t('dashboard.mark_read')}
+										</button>
+									{:else}
+										<button
+											onclick={() => markUnread(msg.id)}
+											class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+										>
+											{$t('dashboard.mark_unread')}
+										</button>
+									{/if}
 									<button
-										onclick={() => markRead(msg.id)}
-										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+										onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
+										class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
 									>
-										{$t('dashboard.mark_read')}
-									</button>
-								{:else}
-									<button
-										onclick={() => markUnread(msg.id)}
-										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-									>
-										{$t('dashboard.mark_unread')}
-									</button>
-								{/if}
-								<button
-									onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
-									class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
-								>
-									{$t('dashboard.answer_button')}
-								</button>
-							</div>
-						{/if}
-					</div>
-
-					{#if replyingTo === msg.id && data.tab !== 'answered'}
-						<div class="mt-4 pt-4 border-t border-slate-800">
-							{#if replyError}
-								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
-							{/if}
-							<textarea
-								bind:value={replyText}
-								placeholder={$t('dashboard.answer_placeholder')}
-								rows="4"
-								class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
-							></textarea>
-							<div class="flex items-center justify-between">
-								<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
-									{replyText.length} / {MAX_CHARS}
-								</p>
-								<div class="flex gap-2">
-									<button
-										onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
-										disabled={isSubmittingReply}
-										class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-									>
-										{$t('dashboard.delete_cancel')}
-									</button>
-									<button
-										onclick={() => submitReply(msg)}
-										disabled={isSubmittingReply || !replyText.trim()}
-										class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
-									>
-										{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+										{$t('dashboard.answer_button')}
 									</button>
 								</div>
+
+								{#if replyingTo === msg.id}
+									<div class="mt-4">
+										{#if replyError}
+											<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
+										{/if}
+										<textarea
+											bind:value={replyText}
+											placeholder={$t('dashboard.answer_placeholder')}
+											rows="4"
+											class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+										></textarea>
+										<div class="flex items-center justify-between">
+											<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
+												{replyText.length} / {MAX_CHARS}
+											</p>
+											<div class="flex gap-2">
+												<button
+													onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
+													disabled={isSubmittingReply}
+													class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+												>
+													{$t('dashboard.delete_cancel')}
+												</button>
+												<button
+													onclick={() => submitReply(msg)}
+													disabled={isSubmittingReply || !replyText.trim()}
+													class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+												>
+													{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+												</button>
+											</div>
+										</div>
+									</div>
+								{/if}
 							</div>
-						</div>
-					{/if}
-				</div>
+						{/if}
+					{/snippet}
+				</QACard>
 			{/each}
 		</div>
 

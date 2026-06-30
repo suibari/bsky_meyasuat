@@ -276,7 +276,13 @@
 		</div>
 	{/if}
 
-	<AnsweredQAList items={data.answeredQA} handle={data.creator.handle} title={$t('box.answered_qa_title')} />
+	<AnsweredQAList
+		items={data.answeredQA}
+		handle={data.creator.handle}
+		title={$t('box.answered_qa_title')}
+		creator={data.creator}
+		creatorHref="https://bsky.app/profile/{data.creator.handle}"
+	/>
 
 	{#if data.answeredQA.length === 10}
 		<div class="mt-4 text-center">

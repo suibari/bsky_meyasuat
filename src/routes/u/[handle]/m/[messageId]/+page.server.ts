@@ -58,7 +58,9 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 			id: m.id,
 			body: m.body,
 			answer: m.answer ?? '',
-			answeredAt: m.answeredAt ?? ''
+			createdAt: m.createdAt,
+			answeredAt: m.answeredAt ?? '',
+			imageUrls: m.imageKeys.map((k) => r2KeyToUrl(env, k))
 		}))
 	};
 };

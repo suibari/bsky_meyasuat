@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getUserByHandle, getAnsweredMessages } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
+import { r2KeyToUrl } from '$lib/server/r2.js';
 export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	const handle = params.handle.replace(/^@/, '');
@@ -27,7 +28,9 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 				id: m.id,
 				body: m.body,
 				answer: m.answer ?? '',
-				answeredAt: m.answeredAt ?? ''
+				createdAt: m.createdAt,
+				answeredAt: m.answeredAt ?? '',
+				imageUrls: m.imageKeys.map((k) => r2KeyToUrl(env, k))
 			}))
 		: [];
 

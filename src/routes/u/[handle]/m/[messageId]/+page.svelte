@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
+	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
 	import type { PageData } from './$types';
 
@@ -25,12 +26,6 @@
 
 	function avatarHref(person: { did: string; handle: string }): string {
 		return data.user?.did === person.did ? '/dashboard' : `/u/${person.handle}`;
-	}
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString(undefined, {
-			year: 'numeric', month: 'long', day: 'numeric'
-		});
 	}
 
 	async function recordAnswerOnPds(answer: string): Promise<void> {
@@ -104,71 +99,22 @@
 </svelte:head>
 
 <div class="max-w-lg mx-auto px-4 py-10">
-	<!-- 募集者 -->
-	<div class="flex items-center gap-3 mb-6">
-		<a href={avatarHref(data.creator)}>
-			{#if data.creator.avatarUrl}
-				<img src={data.creator.avatarUrl} alt="" class="w-10 h-10 rounded-full object-cover" />
-			{:else}
-				<div class="w-10 h-10 rounded-full bg-primary-900 flex items-center justify-center text-primary-300 font-bold">
-					{(data.creator.displayName ?? data.creator.handle)[0].toUpperCase()}
-				</div>
-			{/if}
-		</a>
-		<div>
-			<p class="font-semibold text-slate-100 text-sm">
-				{data.creator.displayName ?? data.creator.handle}
-			</p>
-			<p class="text-xs text-slate-400">@{data.creator.handle}</p>
-		</div>
+	<!-- 質問+回答 -->
+	<div class="mb-4">
+		<QACard
+			body={data.message.body}
+			sender={data.message.sender}
+			senderHref={data.message.sender ? avatarHref(data.message.sender) : undefined}
+			imageUrls={data.message.imageUrls}
+			createdAt={data.message.createdAt}
+			answer={savedAnswer}
+			answeredAt={data.message.answeredAt}
+			creator={savedAnswer ? data.creator : null}
+			creatorHref={avatarHref(data.creator)}
+		/>
 	</div>
 
-	<!-- 質問本文 -->
-	<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm mb-4">
-		{#if data.message.sender}
-			<div class="flex items-center gap-2 mb-4">
-				<a href={avatarHref(data.message.sender)}>
-					{#if data.message.sender.avatarUrl}
-						<img src={data.message.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
-					{:else}
-						<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
-							{(data.message.sender.displayName ?? data.message.sender.handle)[0].toUpperCase()}
-						</div>
-					{/if}
-				</a>
-				<span class="text-xs text-slate-400">
-					<span class="font-medium text-slate-300">{data.message.sender.displayName ?? data.message.sender.handle}</span> (@{data.message.sender.handle})
-				</span>
-			</div>
-		{/if}
-		<p class="text-slate-200 leading-relaxed whitespace-pre-wrap">{data.message.body}</p>
-
-		{#if data.message.imageUrls.length > 0}
-			<div class="mt-4 flex flex-wrap gap-2">
-				{#each data.message.imageUrls as url}
-					<a href={url} target="_blank" rel="noopener noreferrer">
-						<img src={url} alt="" class="rounded-lg max-h-48 max-w-full object-cover border border-slate-700" />
-					</a>
-				{/each}
-			</div>
-		{/if}
-
-		<p class="mt-4 text-xs text-slate-600">
-			{$t('message.sent_at', { values: { date: formatDate(data.message.createdAt) } })}
-		</p>
-	</div>
-
-	<!-- 回答 -->
 	{#if savedAnswer}
-		<div class="bg-primary-950 rounded-2xl border border-primary-800 p-6 shadow-sm mb-4">
-			<p class="text-primary-200 leading-relaxed whitespace-pre-wrap">{savedAnswer}</p>
-			{#if data.message.answeredAt}
-				<p class="mt-4 text-xs text-primary-600">
-					{$t('message.answered_at', { values: { date: formatDate(data.message.answeredAt) } })}
-				</p>
-			{/if}
-		</div>
-
 		{#if data.isOwner}
 			<button
 				onclick={() => showShareModal = true}
@@ -207,7 +153,13 @@
 		<p class="text-center text-sm text-slate-500 mb-4">{$t('message.no_answer_yet')}</p>
 	{/if}
 
-	<AnsweredQAList items={data.relatedQA} handle={data.creator.handle} title={$t('box.answered_qa_title')} />
+	<AnsweredQAList
+		items={data.relatedQA}
+		handle={data.creator.handle}
+		title={$t('box.answered_qa_title')}
+		creator={data.creator}
+		creatorHref={avatarHref(data.creator)}
+	/>
 
 	<!-- 自分も目安箱を作る -->
 	<p class="mt-6 text-center text-xs text-slate-600">
