@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
+	import ShareModal from '$lib/components/ShareModal.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -17,15 +18,14 @@
 	let submitting = $state(false);
 	let errorMsg = $state('');
 	let savedAnswer = $state<string | null>(null);
+	let showShareModal = $state(false);
 	$effect(() => { savedAnswer = data.message.answer; });
 
 	const MAX_CHARS = 1000;
 
-	const blueskyShareUrl = $derived(
-		savedAnswer
-			? `https://bsky.app/intent/compose?text=${encodeURIComponent(`${savedAnswer}\n${pageUrl}`)}`
-			: ''
-	);
+	function avatarHref(person: { did: string; handle: string }): string {
+		return data.user?.did === person.did ? '/dashboard' : `/u/${person.handle}`;
+	}
 
 	function formatDate(iso: string): string {
 		return new Date(iso).toLocaleDateString(undefined, {
@@ -106,13 +106,15 @@
 <div class="max-w-lg mx-auto px-4 py-10">
 	<!-- 募集者 -->
 	<div class="flex items-center gap-3 mb-6">
-		{#if data.creator.avatarUrl}
-			<img src={data.creator.avatarUrl} alt="" class="w-10 h-10 rounded-full object-cover" />
-		{:else}
-			<div class="w-10 h-10 rounded-full bg-primary-900 flex items-center justify-center text-primary-300 font-bold">
-				{(data.creator.displayName ?? data.creator.handle)[0].toUpperCase()}
-			</div>
-		{/if}
+		<a href={avatarHref(data.creator)}>
+			{#if data.creator.avatarUrl}
+				<img src={data.creator.avatarUrl} alt="" class="w-10 h-10 rounded-full object-cover" />
+			{:else}
+				<div class="w-10 h-10 rounded-full bg-primary-900 flex items-center justify-center text-primary-300 font-bold">
+					{(data.creator.displayName ?? data.creator.handle)[0].toUpperCase()}
+				</div>
+			{/if}
+		</a>
 		<div>
 			<p class="font-semibold text-slate-100 text-sm">
 				{data.creator.displayName ?? data.creator.handle}
@@ -125,13 +127,15 @@
 	<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm mb-4">
 		{#if data.message.sender}
 			<div class="flex items-center gap-2 mb-4">
-				{#if data.message.sender.avatarUrl}
-					<img src={data.message.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
-				{:else}
-					<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
-						{(data.message.sender.displayName ?? data.message.sender.handle)[0].toUpperCase()}
-					</div>
-				{/if}
+				<a href={avatarHref(data.message.sender)}>
+					{#if data.message.sender.avatarUrl}
+						<img src={data.message.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
+					{:else}
+						<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
+							{(data.message.sender.displayName ?? data.message.sender.handle)[0].toUpperCase()}
+						</div>
+					{/if}
+				</a>
 				<span class="text-xs text-slate-400">
 					<span class="font-medium text-slate-300">{data.message.sender.displayName ?? data.message.sender.handle}</span> (@{data.message.sender.handle})
 				</span>
@@ -166,14 +170,12 @@
 		</div>
 
 		{#if data.isOwner}
-			<a
-				href={blueskyShareUrl}
-				target="_blank"
-				rel="noopener noreferrer"
+			<button
+				onclick={() => showShareModal = true}
 				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 rounded-xl transition-colors mb-4"
 			>
-				{$t('message.post_answer_to_bluesky')}
-			</a>
+				{$t('message.share_button')}
+			</button>
 		{/if}
 	{:else if data.isOwner}
 		<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm mb-4">
@@ -212,3 +214,11 @@
 		<a href="/" class="hover:text-primary-500 transition-colors">{$t('app.name')}</a> で自分の目安箱を作る
 	</p>
 </div>
+
+{#if showShareModal}
+	<ShareModal
+		ogImageUrl={ogUrl}
+		shareUrl={pageUrl}
+		onClose={() => showShareModal = false}
+	/>
+{/if}

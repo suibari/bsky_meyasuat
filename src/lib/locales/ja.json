@@ -92,7 +92,7 @@
 	"message.answer_error.server": "サーバーエラーが発生しました",
 	"message.answered_at": "{date} に回答",
 	"message.no_answer_yet": "まだ回答されていません",
-	"message.post_answer_to_bluesky": "Blueskyにも投稿する",
+	"message.share_button": "シェアする",
 	"box.answered_qa_title": "回答済みの質問",
 	"box.view_more": "もっと見る",
 	"landing.hero_title": "あなたの Bluesky に、匿名のひとことを",

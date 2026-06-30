@@ -92,7 +92,7 @@
 	"message.answer_error.server": "A server error occurred",
 	"message.answered_at": "Answered on {date}",
 	"message.no_answer_yet": "Not answered yet",
-	"message.post_answer_to_bluesky": "Also post to Bluesky",
+	"message.share_button": "Share",
 	"box.answered_qa_title": "Answered questions",
 	"box.view_more": "View more",
 	"landing.hero_title": "Send anonymous messages to anyone you like on Bluesky",

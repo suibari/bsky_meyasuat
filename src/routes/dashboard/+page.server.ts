@@ -29,17 +29,22 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	]);
 
 	const enriched = await Promise.all(messages.map(async (m) => {
-		let senderHandle = null;
+		let sender = null;
 		if (env && m.senderDid) {
-			const sender = await getUserByDid(env, m.senderDid);
-			if (sender) {
-				senderHandle = sender.handle;
+			const senderUser = await getUserByDid(env, m.senderDid);
+			if (senderUser) {
+				sender = {
+					did: senderUser.did,
+					handle: senderUser.handle,
+					displayName: senderUser.displayName,
+					avatarUrl: senderUser.avatarUrl
+				};
 			}
 		}
 		return {
 			...m,
 			imageUrls: env ? m.imageKeys.map((k) => r2KeyToUrl(env, k)) : [],
-			senderHandle
+			sender
 		};
 	}));
 

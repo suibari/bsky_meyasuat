@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
+	import ShareModal from '$lib/components/ShareModal.svelte';
+	import { ogImageUrl, pageShareUrl } from '$lib/utils/share.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let copied = $state(false);
-	let linkCopied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
 	let replyingTo = $state<string | null>(null);
 	let replyText = $state<string>('');
@@ -23,12 +24,6 @@
 		await navigator.clipboard.writeText(boxUrl);
 		copied = true;
 		setTimeout(() => { copied = false; }, 2000);
-	}
-
-	async function copyShareLink(handle: string, messageId: string) {
-		await navigator.clipboard.writeText(`${data.appUrl}/u/${handle}/m/${messageId}`);
-		linkCopied = true;
-		setTimeout(() => { linkCopied = false; }, 2000);
 	}
 
 	async function markRead(id: string) {
@@ -130,15 +125,6 @@
 		if ((e.target as HTMLElement).tagName === 'DIALOG') cancelDelete();
 	}
 
-	function replyUrl(handle: string, messageId: string): string {
-		const text = `${data.appUrl}/u/${handle}/m/${messageId}`;
-		return `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`;
-	}
-
-	function xReplyUrl(handle: string, messageId: string): string {
-		return `https://twitter.com/intent/tweet?text=${encodeURIComponent(`${data.appUrl}/u/${handle}/m/${messageId}`)}`;
-	}
-
 	function formatDate(iso: string): string {
 		return new Date(iso).toLocaleString(undefined, {
 			year: 'numeric', month: 'short', day: 'numeric',
@@ -222,8 +208,21 @@
 							<span class="shrink-0 w-2 h-2 rounded-full bg-primary-500 mt-1.5"></span>
 						{/if}
 						<div class="flex-1 min-w-0">
-							{#if msg.senderHandle}
-								<span class="inline-block text-xs font-medium text-slate-300 bg-slate-800 px-2 py-0.5 rounded mb-1.5">@{msg.senderHandle}</span>
+							{#if msg.sender}
+								<div class="flex items-center gap-2 mb-1.5">
+									<a href={`/u/${msg.sender.handle}`}>
+										{#if msg.sender.avatarUrl}
+											<img src={msg.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
+										{:else}
+											<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
+												{(msg.sender.displayName ?? msg.sender.handle)[0].toUpperCase()}
+											</div>
+										{/if}
+									</a>
+									<span class="text-xs text-slate-400">
+										<span class="font-medium text-slate-300">{msg.sender.displayName ?? msg.sender.handle}</span> (@{msg.sender.handle})
+									</span>
+								</div>
 							{/if}
 							<p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{msg.body}</p>
 						</div>
@@ -355,58 +354,9 @@
 
 <!-- シェアモーダル -->
 {#if sharingMessageId}
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-<dialog
-	open
-	onclick={(e) => { if ((e.target as HTMLElement).tagName === 'DIALOG') sharingMessageId = null; }}
-	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 w-full h-full max-w-none max-h-none p-4 m-0 border-none"
->
-	<div class="bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{$t('dashboard.share_title')}</h2>
-		
-		<img 
-			src={`/api/og/${sharingMessageId}`} 
-			alt="OGP" 
-			class="w-full h-auto rounded-xl border border-slate-700 mb-6" 
-		/>
-
-		<div class="flex flex-col gap-3 mb-2">
-			<a
-				href={replyUrl(data.user?.handle ?? '', sharingMessageId)}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
-			>
-				{$t('dashboard.share_on_bluesky')}
-			</a>
-			<a
-				href={xReplyUrl(data.user?.handle ?? '', sharingMessageId)}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="flex items-center justify-center gap-2 w-full bg-black hover:bg-gray-800 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
-			>
-				{$t('dashboard.share_on_x')}
-			</a>
-			<button
-				onclick={() => copyShareLink(data.user?.handle ?? '', sharingMessageId ?? '')}
-				class="flex items-center justify-center gap-2 w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-					<path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
-					<path d="M14 11a5 5 0 0 0-7.07 0l-2.83 2.83a5 5 0 0 0 7.07 7.07l1.5-1.5" />
-				</svg>
-				{linkCopied ? $t('dashboard.link_copied') : $t('dashboard.copy_link')}
-			</button>
-		</div>
-		
-		<div class="mt-4 text-center">
-			<button
-				onclick={() => sharingMessageId = null}
-				class="text-sm text-slate-400 hover:text-slate-200 px-4 py-2 transition-colors"
-			>
-				{$t('dashboard.close')}
-			</button>
-		</div>
-	</div>
-</dialog>
+	<ShareModal
+		ogImageUrl={ogImageUrl(data.appUrl, sharingMessageId)}
+		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
+		onClose={() => sharingMessageId = null}
+	/>
 {/if}
