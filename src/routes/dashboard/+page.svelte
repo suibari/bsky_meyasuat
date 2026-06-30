@@ -7,6 +7,14 @@
 
 	let copied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
+	let replyingTo = $state<string | null>(null);
+	let replyText = $state<string>('');
+	let sharingMessageId = $state<string | null>(null);
+	let isSubmittingReply = $state(false);
+	let replyError = $state<string | null>(null);
+
+	const MAX_CHARS = 1000;
+
 	const boxUrl = $derived(`${data.appUrl}/u/${data.user?.handle}`);
 	const boxName = $derived(data.user?.boxName?.trim() || $t('dashboard.title'));
 
@@ -24,6 +32,76 @@
 	async function markUnread(id: string) {
 		await fetch(`/api/messages/${id}/read`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: false }) });
 		await invalidateAll();
+	}
+
+	async function recordAnswerOnPds(msg: any, answer: string): Promise<void> {
+		try {
+			const [{ createOAuthClient }, { Agent }] = await Promise.all([
+				import('$lib/client/oauthClient.js'),
+				import('@atproto/api')
+			]);
+			const client = await createOAuthClient(data.appUrl);
+			const session = await client.restore(data.user?.did ?? '');
+			const agent = new Agent(session);
+			await agent.com.atproto.repo.createRecord({
+				repo: data.user?.did ?? '',
+				collection: 'com.suibari.meyasuat.answer',
+				record: {
+					$type: 'com.suibari.meyasuat.answer',
+					...(msg.senderDid ? { subject: msg.senderDid } : {}),
+					question: msg.body,
+					...(msg.questionRecordUri && msg.questionRecordCid
+						? { questionRef: { uri: msg.questionRecordUri, cid: msg.questionRecordCid } }
+						: {}),
+					answer,
+					url: `${data.appUrl}/u/${data.user?.handle}/m/${msg.id}`,
+					createdAt: new Date().toISOString()
+				}
+			});
+		} catch (e) {
+			console.error('Failed to record answer on PDS', e);
+		}
+	}
+
+	async function submitReply(msg: any) {
+		replyError = null;
+		if (!replyText.trim()) return;
+		if (replyText.length > MAX_CHARS) {
+			replyError = $t('message.answer_error.too_long');
+			return;
+		}
+
+		isSubmittingReply = true;
+		try {
+			const res = await fetch(`/api/messages/${msg.id}/answer`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ answer: replyText.trim() })
+			});
+			if (!res.ok) {
+				replyError = $t('message.answer_error.server');
+				return;
+			}
+			const result = await res.json() as { answer: string };
+			
+			// 先にPDSへの記録などの回答処理をすべて終わらせる
+			await recordAnswerOnPds(msg, result.answer);
+
+			// モーダルを表示し、入力ペインを閉じる
+			sharingMessageId = msg.id;
+			replyingTo = null;
+
+			// 回答処理がすべて完了してから既読状態へ移動させる
+			if (!msg.isRead) {
+				await markRead(msg.id);
+			} else {
+				await invalidateAll();
+			}
+		} catch (e) {
+			replyError = $t('message.answer_error.server');
+		} finally {
+			isSubmittingReply = false;
+		}
 	}
 
 	function confirmDelete(id: string) {
@@ -164,26 +242,49 @@
 									{$t('dashboard.mark_unread')}
 								</button>
 							{/if}
-							<a
-								href={replyUrl(data.user?.handle ?? '', msg.id)}
-								target="_blank"
-								rel="noopener noreferrer"
-								onclick={() => { if (!msg.isRead) markRead(msg.id); }}
+							<button
+								onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
 								class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
 							>
-								{$t('dashboard.reply')}
-							</a>
-							<a
-								href={xReplyUrl(data.user?.handle ?? '', msg.id)}
-								target="_blank"
-								rel="noopener noreferrer"
-								onclick={() => { if (!msg.isRead) markRead(msg.id); }}
-								class="text-xs bg-black hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.reply_on_x')}
-							</a>
+								{$t('dashboard.answer_button')}
+							</button>
 						</div>
 					</div>
+
+					{#if replyingTo === msg.id}
+						<div class="mt-4 pt-4 border-t border-slate-800">
+							{#if replyError}
+								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
+							{/if}
+							<textarea
+								bind:value={replyText}
+								placeholder={$t('dashboard.answer_placeholder')}
+								rows="4"
+								class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+							></textarea>
+							<div class="flex items-center justify-between">
+								<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
+									{replyText.length} / {MAX_CHARS}
+								</p>
+								<div class="flex gap-2">
+									<button
+										onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
+										disabled={isSubmittingReply}
+										class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+									>
+										{$t('dashboard.delete_cancel')}
+									</button>
+									<button
+										onclick={() => submitReply(msg)}
+										disabled={isSubmittingReply || !replyText.trim()}
+										class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+									>
+										{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -222,6 +323,54 @@
 				class="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
 			>
 				{$t('dashboard.delete')}
+			</button>
+		</div>
+	</div>
+</dialog>
+{/if}
+
+<!-- シェアモーダル -->
+{#if sharingMessageId}
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+<dialog
+	open
+	onclick={(e) => { if ((e.target as HTMLElement).tagName === 'DIALOG') sharingMessageId = null; }}
+	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 w-full h-full max-w-none max-h-none p-4 m-0 border-none"
+>
+	<div class="bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
+		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{$t('dashboard.share_title')}</h2>
+		
+		<img 
+			src={`/api/og/u/${data.user?.handle}/m/${sharingMessageId}`} 
+			alt="OGP" 
+			class="w-full h-auto rounded-xl border border-slate-700 mb-6" 
+		/>
+
+		<div class="flex flex-col gap-3 mb-2">
+			<a
+				href={replyUrl(data.user?.handle ?? '', sharingMessageId)}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+			>
+				{$t('dashboard.share_on_bluesky')}
+			</a>
+			<a
+				href={xReplyUrl(data.user?.handle ?? '', sharingMessageId)}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="flex items-center justify-center gap-2 w-full bg-black hover:bg-gray-800 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+			>
+				{$t('dashboard.share_on_x')}
+			</a>
+		</div>
+		
+		<div class="mt-4 text-center">
+			<button
+				onclick={() => sharingMessageId = null}
+				class="text-sm text-slate-400 hover:text-slate-200 px-4 py-2 transition-colors"
+			>
+				{$t('dashboard.close')}
 			</button>
 		</div>
 	</div>
