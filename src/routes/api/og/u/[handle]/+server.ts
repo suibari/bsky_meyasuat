@@ -64,7 +64,6 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 					height: '630px',
 					display: 'flex',
 					flexDirection: 'column',
-					justifyContent: 'space-between',
 					background: '#ffffff',
 					padding: '64px',
 					fontFamily: '"Noto Sans JP", sans-serif'
@@ -77,7 +76,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								fontSize: '52px',
 								fontWeight: 700,
 								color: '#0369a1',
-								fontFamily: '"Noto Sans JP"'
+								fontFamily: '"KillGothic"'
 							},
 							children: `${name}の${boxName}`
 						}
@@ -87,42 +86,14 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 						props: {
 							style: {
 								display: 'flex',
+								flexGrow: 1,
 								alignItems: 'center',
-								gap: '24px'
+								justifyContent: 'center',
+								fontSize: '80px',
+								fontWeight: 400,
+								color: '#0f172a'
 							},
-							children: [
-								avatarNode,
-								{
-									type: 'div',
-									props: {
-										style: { display: 'flex', flexDirection: 'column' },
-										children: [
-											{
-												type: 'div',
-												props: {
-													style: {
-														fontSize: '40px',
-														fontWeight: 700,
-														color: '#0f172a'
-													},
-													children: name
-												}
-											},
-											{
-												type: 'div',
-												props: {
-													style: {
-														fontSize: '24px',
-														color: '#64748b',
-														marginTop: '8px'
-													},
-													children: `@${creator.handle}`
-												}
-											}
-										]
-									}
-								}
-							]
+							children: 'メッセージを募集中'
 						}
 					},
 					{
@@ -130,32 +101,88 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 						props: {
 							style: {
 								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'flex-end',
-								gap: '10px'
+								alignItems: 'flex-end',
+								justifyContent: 'space-between',
+								width: '100%'
 							},
 							children: [
 								{
 									type: 'div',
 									props: {
 										style: {
-											fontSize: '22px',
-											fontWeight: 700,
-											color: '#0ea5e9',
-											fontFamily: '"KillGothic"'
+											display: 'flex',
+											alignItems: 'center',
+											gap: '24px'
 										},
-										children: 'めやすあっと'
+										children: [
+											avatarNode,
+											{
+												type: 'div',
+												props: {
+													style: { display: 'flex', flexDirection: 'column' },
+													children: [
+														{
+															type: 'div',
+															props: {
+																style: {
+																	fontSize: '40px',
+																	fontWeight: 700,
+																	color: '#0f172a'
+																},
+																children: name
+															}
+														},
+														{
+															type: 'div',
+															props: {
+																style: {
+																	fontSize: '24px',
+																	color: '#64748b',
+																	marginTop: '8px'
+																},
+																children: `@${creator.handle}`
+															}
+														}
+													]
+												}
+											}
+										]
 									}
 								},
 								{
 									type: 'div',
 									props: {
 										style: {
-											fontSize: '18px',
-											color: '#94a3b8',
-											fontFamily: '"KillGothic"'
+											display: 'flex',
+											flexDirection: 'column',
+											alignItems: 'flex-end',
+											gap: '8px'
 										},
-										children: 'meyasuat.suibari.com'
+										children: [
+											{
+												type: 'div',
+												props: {
+													style: {
+														fontSize: '32px',
+														fontWeight: 700,
+														color: '#0ea5e9',
+														fontFamily: '"KillGothic"'
+													},
+													children: 'めやすあっと'
+												}
+											},
+											{
+												type: 'div',
+												props: {
+													style: {
+														fontSize: '24px',
+														color: '#94a3b8',
+														fontFamily: '"KillGothic"'
+													},
+													children: 'meyasuat.suibari.com'
+												}
+											}
+										]
 									}
 								}
 							]
