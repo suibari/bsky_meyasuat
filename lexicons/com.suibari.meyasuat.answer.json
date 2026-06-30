@@ -1,0 +1,48 @@
+{
+	"lexicon": 1,
+	"id": "com.suibari.meyasuat.answer",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "An answer posted through meyasuat, recorded in the box owner's own repo.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": ["question", "answer", "url", "createdAt"],
+				"properties": {
+					"subject": {
+						"type": "string",
+						"format": "did",
+						"description": "DID of the asker, if the question was sent with the sender's handle shared."
+					},
+					"question": {
+						"type": "string",
+						"maxLength": 3000,
+						"maxGraphemes": 1000,
+						"description": "Text snapshot of the question being answered."
+					},
+					"questionRef": {
+						"type": "ref",
+						"ref": "com.atproto.repo.strongRef",
+						"description": "Optional strong reference to the asker's own com.suibari.meyasuat.question record, when one exists."
+					},
+					"answer": {
+						"type": "string",
+						"maxLength": 3000,
+						"maxGraphemes": 1000,
+						"description": "The answer text."
+					},
+					"url": {
+						"type": "string",
+						"format": "uri",
+						"description": "Link to the meyasuat message page."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}

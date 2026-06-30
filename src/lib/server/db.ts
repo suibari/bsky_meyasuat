@@ -4,6 +4,7 @@ export type User = {
 	displayName: string | null;
 	avatarUrl: string | null;
 	notifyEnabled: boolean;
+	shareHandleEnabled: boolean;
 	boxName: string | null;
 	createdAt: string;
 	updatedAt: string;
@@ -27,6 +28,9 @@ export type Message = {
 	createdAt: string;
 	answer: string | null;
 	answeredAt: string | null;
+	senderDid: string | null;
+	questionRecordUri: string | null;
+	questionRecordCid: string | null;
 };
 
 type Env = App.Platform['env'];
@@ -49,6 +53,7 @@ function toUser(row: Record<string, unknown>): User {
 		displayName: (row.display_name as string | null) ?? null,
 		avatarUrl: (row.avatar_url as string | null) ?? null,
 		notifyEnabled: row.notify_enabled as boolean,
+		shareHandleEnabled: row.share_handle_enabled as boolean,
 		boxName: (row.box_name as string | null) ?? null,
 		createdAt: row.created_at as string,
 		updatedAt: row.updated_at as string
@@ -66,7 +71,10 @@ function toMessage(row: Record<string, unknown>): Message {
 		ipHash: row.ip_hash as string,
 		createdAt: row.created_at as string,
 		answer: (row.answer as string | null) ?? null,
-		answeredAt: (row.answered_at as string | null) ?? null
+		answeredAt: (row.answered_at as string | null) ?? null,
+		senderDid: (row.sender_did as string | null) ?? null,
+		questionRecordUri: (row.question_record_uri as string | null) ?? null,
+		questionRecordCid: (row.question_record_cid as string | null) ?? null
 	};
 }
 
@@ -112,12 +120,13 @@ export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & 
 	return toUser(rows[0]);
 }
 
-export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl' | 'notifyEnabled' | 'boxName'>>): Promise<void> {
+export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl' | 'notifyEnabled' | 'shareHandleEnabled' | 'boxName'>>): Promise<void> {
 	const body: Record<string, unknown> = { updated_at: new Date().toISOString() };
 	if (patch.handle !== undefined) body.handle = patch.handle;
 	if (patch.displayName !== undefined) body.display_name = patch.displayName;
 	if (patch.avatarUrl !== undefined) body.avatar_url = patch.avatarUrl;
 	if (patch.notifyEnabled !== undefined) body.notify_enabled = patch.notifyEnabled;
+	if (patch.shareHandleEnabled !== undefined) body.share_handle_enabled = patch.shareHandleEnabled;
 	if (patch.boxName !== undefined) body.box_name = patch.boxName;
 	await fetch(
 		`${env.POSTGREST_URL}/users?did=eq.${encodeURIComponent(did)}`,
@@ -168,13 +177,14 @@ export async function deleteSession(env: Env, sessionId: string): Promise<void> 
 
 export async function createMessage(
 	env: Env,
-	data: { creatorDid: string; body: string; imageKeys: string[]; ipHash: string }
+	data: { creatorDid: string; body: string; imageKeys: string[]; ipHash: string; senderDid: string | null }
 ): Promise<Message> {
 	const body = {
 		creator_did: data.creatorDid,
 		body: data.body,
 		image_keys: data.imageKeys,
-		ip_hash: data.ipHash
+		ip_hash: data.ipHash,
+		sender_did: data.senderDid
 	};
 	const res = await fetch(`${env.POSTGREST_URL}/messages`, {
 		method: 'POST',
@@ -262,6 +272,26 @@ export async function updateMessageBotUri(env: Env, id: string, botPostUri: stri
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`,
 		{ method: 'PATCH', headers: headers(env), body: JSON.stringify({ bot_post_uri: botPostUri }) }
 	);
+}
+
+export async function updateMessageQuestionRef(
+	env: Env,
+	id: string,
+	senderDid: string,
+	uri: string,
+	cid: string
+): Promise<boolean> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}`,
+		{
+			method: 'PATCH',
+			headers: { ...headers(env), Prefer: 'return=representation' },
+			body: JSON.stringify({ question_record_uri: uri, question_record_cid: cid })
+		}
+	);
+	if (!res.ok) return false;
+	const rows = await res.json() as unknown[];
+	return rows.length > 0;
 }
 
 export async function countUnread(env: Env, creatorDid: string): Promise<number> {

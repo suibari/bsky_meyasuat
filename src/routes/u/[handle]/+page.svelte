@@ -1,20 +1,72 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { page } from '$app/state';
 	import { Turnstile } from 'svelte-turnstile';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
+	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	const boxName = $derived(data.creator.boxName?.trim() || $t('dashboard.title'));
 	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}`);
+	const creatorName = $derived(data.creator.displayName ?? data.creator.handle);
 
 	let body = $state('');
 	let images: File[] = $state([]);
+	let compressedBlobs: Blob[] = [];
 	let turnstileToken = $state('');
 	let submitting = $state(false);
 	let success = $state(false);
 	let errorMsg = $state('');
+	let shareHandle = $state(data.user?.shareHandleEnabled ?? false);
+
+	async function onShareHandleChange() {
+		await fetch('/api/prefs/share-handle', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ enabled: shareHandle })
+		});
+	}
+
+	async function recordQuestionOnPds(messageId: string): Promise<void> {
+		const user = data.user;
+		if (!user) return;
+		try {
+			const [{ createOAuthClient }, { Agent }] = await Promise.all([
+				import('$lib/client/oauthClient.js'),
+				import('@atproto/api')
+			]);
+			const client = await createOAuthClient(data.appUrl);
+			const session = await client.restore(user.did);
+			const agent = new Agent(session);
+			const uploadedImages = await Promise.all(
+				compressedBlobs.map(async (blob) => {
+					const up = await agent.uploadBlob(blob, { encoding: blob.type });
+					return { image: up.data.blob, alt: '' };
+				})
+			);
+			const { uri, cid } = await agent.com.atproto.repo.createRecord({
+				repo: user.did,
+				collection: 'com.suibari.meyasuat.question',
+				record: {
+					$type: 'com.suibari.meyasuat.question',
+					subject: data.creator.did,
+					text: body.trim(),
+					images: uploadedImages,
+					url: `${data.appUrl}/u/${data.creator.handle}/m/${messageId}`,
+					createdAt: new Date().toISOString()
+				}
+			}).then((r) => r.data);
+			await fetch(`/api/messages/${messageId}/question-ref`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ uri, cid })
+			});
+		} catch (e) {
+			console.error('Failed to record question on PDS', e);
+		}
+	}
 
 	const MAX_CHARS = 1000;
 	const MAX_IMAGES = 4;
@@ -70,16 +122,22 @@
 			fd.append('body', body.trim());
 			fd.append('creator_did', data.creator.did);
 			fd.append('turnstile_token', turnstileToken);
+			if (shareHandle && data.user) fd.append('sender_did', data.user.did);
 
+			compressedBlobs = [];
 			for (const img of images) {
 				const compressed = await compressImage(img);
 				if (compressed.size > MAX_SIZE) { errorMsg = $t('submit.error.image_too_large'); submitting = false; return; }
+				compressedBlobs.push(compressed);
 				fd.append('images', compressed, img.name.replace(/\.\w+$/, '.jpg'));
 			}
 
 			const res = await fetch('/api/submit', { method: 'POST', body: fd });
 			if (res.status === 429) { errorMsg = $t('submit.error.rate_limit'); return; }
 			if (!res.ok) { errorMsg = $t('submit.error.server'); return; }
+
+			const result = await res.json() as { messageId: string };
+			if (shareHandle && data.user) recordQuestionOnPds(result.messageId);
 
 			success = true;
 			body = '';
@@ -174,6 +232,29 @@
 						</label>
 					{/if}
 				</div>
+			</div>
+
+			<!-- 名入れメッセージ -->
+			<div class="mb-4">
+				<p class="text-sm font-medium text-slate-300 mb-2">{$t('submit.named_label')}</p>
+				{#if !data.user}
+					<p class="text-xs text-slate-400 mb-2">
+						{$t('submit.named_signin_description', { values: { name: creatorName } })}
+					</p>
+					<a
+						href={`/signin?redirect_to=${encodeURIComponent(page.url.pathname)}`}
+						class="inline-block text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
+					>
+						{$t('nav.signin')}
+					</a>
+				{:else}
+					<label class="flex items-center justify-between gap-3 cursor-pointer">
+						<span class="text-sm text-slate-300">
+							{$t('submit.named_checkbox', { values: { name: creatorName } })}
+						</span>
+						<ToggleSwitch bind:checked={shareHandle} onchange={onShareHandleChange} />
+					</label>
+				{/if}
 			</div>
 
 			<!-- Turnstile -->

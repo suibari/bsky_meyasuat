@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getMessages, countUnread } from '$lib/server/db.js';
+import { getMessages, countUnread, getUserByDid } from '$lib/server/db.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
@@ -23,9 +23,19 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		env ? countUnread(env, user.did) : 0
 	]);
 
-	const enriched = messages.map((m) => ({
-		...m,
-		imageUrls: env ? m.imageKeys.map((k) => r2KeyToUrl(env, k)) : []
+	const enriched = await Promise.all(messages.map(async (m) => {
+		let senderHandle = null;
+		if (env && m.senderDid) {
+			const sender = await getUserByDid(env, m.senderDid);
+			if (sender) {
+				senderHandle = sender.handle;
+			}
+		}
+		return {
+			...m,
+			imageUrls: env ? m.imageKeys.map((k) => r2KeyToUrl(env, k)) : [],
+			senderHandle
+		};
 	}));
 
 	return {

@@ -33,6 +33,35 @@
 		});
 	}
 
+	async function recordAnswerOnPds(answer: string): Promise<void> {
+		try {
+			const [{ createOAuthClient }, { Agent }] = await Promise.all([
+				import('$lib/client/oauthClient.js'),
+				import('@atproto/api')
+			]);
+			const client = await createOAuthClient(data.appUrl);
+			const session = await client.restore(data.creator.did);
+			const agent = new Agent(session);
+			await agent.com.atproto.repo.createRecord({
+				repo: data.creator.did,
+				collection: 'com.suibari.meyasuat.answer',
+				record: {
+					$type: 'com.suibari.meyasuat.answer',
+					...(data.message.senderDid ? { subject: data.message.senderDid } : {}),
+					question: data.message.body,
+					...(data.message.questionRecordUri && data.message.questionRecordCid
+						? { questionRef: { uri: data.message.questionRecordUri, cid: data.message.questionRecordCid } }
+						: {}),
+					answer,
+					url: pageUrl,
+					createdAt: new Date().toISOString()
+				}
+			});
+		} catch (e) {
+			console.error('Failed to record answer on PDS', e);
+		}
+	}
+
 	async function submitAnswer() {
 		errorMsg = '';
 		if (!answerText.trim()) { errorMsg = $t('message.answer_error.required'); return; }
@@ -48,6 +77,11 @@
 			if (!res.ok) { errorMsg = $t('message.answer_error.server'); return; }
 			const result = await res.json() as { answer: string };
 			savedAnswer = result.answer;
+			
+			if (data.isOwner) {
+				recordAnswerOnPds(result.answer);
+			}
+			
 			await invalidateAll();
 		} catch {
 			errorMsg = $t('message.answer_error.server');
@@ -89,6 +123,20 @@
 
 	<!-- 質問本文 -->
 	<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm mb-4">
+		{#if data.message.sender}
+			<div class="flex items-center gap-2 mb-4">
+				{#if data.message.sender.avatarUrl}
+					<img src={data.message.sender.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
+				{:else}
+					<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs">
+						{(data.message.sender.displayName ?? data.message.sender.handle)[0].toUpperCase()}
+					</div>
+				{/if}
+				<span class="text-xs text-slate-400">
+					<span class="font-medium text-slate-300">{data.message.sender.displayName ?? data.message.sender.handle}</span> (@{data.message.sender.handle})
+				</span>
+			</div>
+		{/if}
 		<p class="text-slate-200 leading-relaxed whitespace-pre-wrap">{data.message.body}</p>
 
 		{#if data.message.imageUrls.length > 0}

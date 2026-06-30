@@ -3,7 +3,7 @@
 	"client_name": "めやすあっと",
 	"client_uri": "https://meyasuat.suibari.com",
 	"redirect_uris": ["https://meyasuat.suibari.com/oauth/callback"],
-	"scope": "atproto rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview repo:app.bsky.graph.follow?action=create",
+	"scope": "atproto rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview repo:app.bsky.graph.follow?action=create repo:com.suibari.meyasuat.question?action=create repo:com.suibari.meyasuat.answer?action=create blob:image/*",
 	"grant_types": ["authorization_code", "refresh_token"],
 	"response_types": ["code"],
 	"token_endpoint_auth_method": "none",

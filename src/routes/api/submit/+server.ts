@@ -24,6 +24,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const fd = await request.formData();
 	const body = (fd.get('body') as string | null)?.trim() ?? '';
 	const creatorDid = (fd.get('creator_did') as string | null) ?? '';
+	const senderDid = (fd.get('sender_did') as string | null) ?? null;
 	const turnstileToken = (fd.get('turnstile_token') as string | null) ?? '';
 	const imageFiles = fd.getAll('images') as File[];
 
@@ -31,6 +32,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	if (!body) error(400, 'Message body is required');
 	if (body.length > 1000) error(400, 'Message too long');
 	if (!creatorDid.startsWith('did:')) error(400, 'Invalid creator');
+	if (senderDid && !senderDid.startsWith('did:')) error(400, 'Invalid sender');
 	if (imageFiles.length > 4) error(400, 'Too many images');
 
 	// Turnstile 検証
@@ -66,7 +68,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		creatorDid,
 		body,
 		imageKeys,
-		ipHash
+		ipHash,
+		senderDid: senderDid?.startsWith('did:') ? senderDid : null
 	});
 
 	// レートリミットログ

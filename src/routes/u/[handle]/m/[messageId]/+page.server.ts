@@ -18,6 +18,19 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		redirect(301, `/u/${creator.handle}/m/${message.id}`);
 	}
 
+	let senderProfile = null;
+	if (message.senderDid) {
+		const sender = await getUserByDid(env, message.senderDid);
+		if (sender) {
+			senderProfile = {
+				did: sender.did,
+				handle: sender.handle,
+				displayName: sender.displayName,
+				avatarUrl: sender.avatarUrl
+			};
+		}
+	}
+
 	const appUrl = env.PUBLIC_APP_URL || '';
 	const isOwner = locals.user?.did === message.creatorDid;
 
@@ -29,7 +42,8 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	return {
 		message: {
 			...message,
-			imageUrls: message.imageKeys.map((k) => r2KeyToUrl(env, k))
+			imageUrls: message.imageKeys.map((k) => r2KeyToUrl(env, k)),
+			sender: senderProfile
 		},
 		creator: {
 			did: creator.did,

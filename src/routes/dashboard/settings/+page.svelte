@@ -4,6 +4,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData, ActionData } from './$types';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -70,17 +71,12 @@
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.notifications')}</h2>
 		<form method="POST" action="?/saveNotify" use:enhance={handleNotifySubmit}>
-			<label class="flex items-start gap-3 cursor-pointer">
-				<input
-					type="checkbox"
-					name="notify_enabled"
-					checked={data.user.notifyEnabled}
-					class="mt-0.5 w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-				/>
+			<label class="flex items-center justify-between gap-3 cursor-pointer">
 				<div>
 					<p class="text-sm font-medium text-slate-300">{$t('settings.notify_enabled')}</p>
 					<p class="text-xs text-slate-400 mt-0.5">{$t('settings.notify_description')}</p>
 				</div>
+				<ToggleSwitch name="notify_enabled" checked={data.user.notifyEnabled} />
 			</label>
 			{#if followError}
 				<p class="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{followError}</p>

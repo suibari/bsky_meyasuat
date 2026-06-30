@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { upsertUser, createSession } from '$lib/server/db.js';
 import { makeCookieValue, cookieName } from '$lib/server/session.js';
 import { getHandleFromDid } from '$lib/server/atproto.js';
+import { isSafeRedirect } from '$lib/server/redirect.js';
 
 export const load: PageServerLoad = ({ platform }) => {
 	const appUrl = platform?.env?.PUBLIC_APP_URL ?? '';
@@ -17,6 +18,7 @@ export const actions: Actions = {
 		const fd = await request.formData();
 		const did = (fd.get('did') as string | null)?.trim() ?? '';
 		if (!did || !did.startsWith('did:')) error(400, 'Invalid DID');
+		const redirectTo = isSafeRedirect((fd.get('redirect_to') as string | null)?.trim());
 
 		// DID が実在するか PLC Directory で確認し、ハンドルを取得
 		const handle = await getHandleFromDid(did);
@@ -52,6 +54,6 @@ export const actions: Actions = {
 			expires: new Date(session.expiresAt)
 		});
 
-		redirect(302, '/dashboard');
+		redirect(302, redirectTo ?? '/dashboard');
 	}
 };

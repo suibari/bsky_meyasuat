@@ -48,7 +48,7 @@
 				clientId,
 				handleResolver: 'https://bsky.social'
 			});
-			await client.signIn(h);
+			await client.signIn(h, data.redirectTo ? { state: data.redirectTo } : undefined);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unknown error';
 			loading = false;

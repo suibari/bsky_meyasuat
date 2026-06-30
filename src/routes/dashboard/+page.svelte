@@ -128,7 +128,12 @@
 						{#if !msg.isRead}
 							<span class="shrink-0 w-2 h-2 rounded-full bg-primary-500 mt-1.5"></span>
 						{/if}
-						<p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap flex-1">{msg.body}</p>
+						<div class="flex-1 min-w-0">
+							{#if msg.senderHandle}
+								<span class="inline-block text-xs font-medium text-slate-300 bg-slate-800 px-2 py-0.5 rounded mb-1.5">@{msg.senderHandle}</span>
+							{/if}
+							<p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{msg.body}</p>
+						</div>
 					</div>
 
 					{#if msg.imageUrls.length > 0}

@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid } from '$lib/server/db.js';
-import { ensureInit, loadFonts, buildQuestionNode, satori, Resvg } from '$lib/server/og.js';
+import { ensureInit, loadFonts, buildQuestionNode, satori, Resvg, fetchImageAsDataUri } from '$lib/server/og.js';
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
@@ -14,6 +14,11 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	if (!message) error(404, 'Not found');
 
 	const creator = await getUserByDid(env, message.creatorDid);
+
+	let sender = null;
+	if (message.senderDid) {
+		sender = await getUserByDid(env, message.senderDid);
+	}
 
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
@@ -63,11 +68,56 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 									type: 'div',
 									props: {
 										style: {
-											fontSize: '22px',
-											color: '#64748b',
-											fontFamily: '"Noto Sans JP"'
+											display: 'flex',
+											flexDirection: 'column',
+											gap: '8px'
 										},
-										children: `@${handle} への${boxName}`
+										children: [
+											sender ? {
+												type: 'div',
+												props: {
+													style: { display: 'flex', alignItems: 'center', gap: '12px' },
+													children: [
+														sender.avatarUrl ? {
+															type: 'img',
+															props: {
+																src: await fetchImageAsDataUri(sender.avatarUrl),
+																style: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }
+															}
+														} : {
+															type: 'div',
+															props: {
+																style: {
+																	width: '48px', height: '48px', borderRadius: '50%',
+																	background: '#334155', color: '#cbd5e1',
+																	display: 'flex', alignItems: 'center', justifyContent: 'center',
+																	fontSize: '24px', fontWeight: 'bold'
+																},
+																children: (sender.displayName ?? sender.handle)[0].toUpperCase()
+															}
+														},
+														{
+															type: 'div',
+															props: {
+																style: { fontSize: '24px', color: '#cbd5e1', fontFamily: '"Noto Sans JP"' },
+																children: ((sender.displayName ?? sender.handle).length > 12 ? (sender.displayName ?? sender.handle).slice(0, 12) + '…' : (sender.displayName ?? sender.handle))
+															}
+														}
+													]
+												}
+											} : null,
+											{
+												type: 'div',
+												props: {
+													style: {
+														fontSize: '22px',
+														color: '#64748b',
+														fontFamily: '"Noto Sans JP"'
+													},
+													children: `@${handle} への${boxName}`
+												}
+											}
+										].filter(Boolean)
 									}
 								},
 								{
