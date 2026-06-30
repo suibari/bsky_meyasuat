@@ -1,12 +1,39 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData, ActionData } from './$types';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	let followError = $state('');
 
+	const handleNotifySubmit: SubmitFunction = ({ formData }) => {
+		followError = '';
+		const enabling = formData.get('notify_enabled') === 'on';
+
+		return async ({ update }) => {
+			if (enabling && data.botDid) {
+				try {
+					const [{ createOAuthClient }, { Agent }] = await Promise.all([
+						import('$lib/client/oauthClient.js'),
+						import('@atproto/api')
+					]);
+					const client = await createOAuthClient(data.appUrl);
+					const session = await client.restore(data.user.did);
+					const agent = new Agent(session);
+					const profile = await agent.getProfile({ actor: data.botDid });
+					if (!profile.data.viewer?.following) {
+						await agent.follow(data.botDid);
+					}
+				} catch (e) {
+					followError = e instanceof Error ? e.message : 'Unknown error';
+				}
+			}
+			await update();
+		};
+	};
 </script>
 
 <svelte:head>
@@ -42,7 +69,7 @@
 	<!-- 通知 -->
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.notifications')}</h2>
-		<form method="POST" action="?/saveNotify" use:enhance>
+		<form method="POST" action="?/saveNotify" use:enhance={handleNotifySubmit}>
 			<label class="flex items-start gap-3 cursor-pointer">
 				<input
 					type="checkbox"
@@ -55,6 +82,9 @@
 					<p class="text-xs text-slate-400 mt-0.5">{$t('settings.notify_description')}</p>
 				</div>
 			</label>
+			{#if followError}
+				<p class="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{followError}</p>
+			{/if}
 			<button type="submit" class="mt-4 text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors">
 				{$t('settings.save')}
 			</button>

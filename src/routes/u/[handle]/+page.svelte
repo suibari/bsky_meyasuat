@@ -6,6 +6,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const boxName = $derived(data.creator.boxName?.trim() || $t('dashboard.title'));
+	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}`);
 
 	let body = $state('');
 	let images: File[] = $state([]);
@@ -94,6 +95,13 @@
 	<title>
 		{data.creator.displayName ?? data.creator.handle}{$t('submit.title', { values: { box: boxName } })} - {$t('app.name')}
 	</title>
+	<meta property="og:title" content="{data.creator.displayName ?? data.creator.handle}{$t('submit.title', { values: { box: boxName } })}" />
+	<meta property="og:description" content={$t('submit.body_placeholder')} />
+	<meta property="og:image" content={ogUrl} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={ogUrl} />
 </svelte:head>
 
 <div class="max-w-lg mx-auto px-4 py-10">

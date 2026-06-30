@@ -92,7 +92,7 @@ export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & 
 		handle: user.handle,
 		display_name: user.displayName ?? null,
 		avatar_url: user.avatarUrl ?? null,
-		notify_enabled: user.notifyEnabled ?? true,
+		notify_enabled: user.notifyEnabled ?? false,
 		updated_at: new Date().toISOString()
 	};
 	const res = await fetch(`${env.POSTGREST_URL}/users`, {

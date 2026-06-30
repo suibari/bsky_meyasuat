@@ -55,7 +55,7 @@
 	"settings.box_name_placeholder": "例: 質問箱、イラリク",
 	"settings.notifications": "通知設定",
 	"settings.notify_enabled": "新着メッセージを Bluesky でお知らせする",
-	"settings.notify_description": "Bot アカウントからメンションで通知されます",
+	"settings.notify_description": "ONにするとめやすあっとbotを自動でフォローします。メッセージを受けると、そのbotからメンションが来ます",
 	"settings.language": "言語",
 	"settings.theme": "テーマ",
 	"settings.theme_light": "ライト",

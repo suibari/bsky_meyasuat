@@ -55,7 +55,7 @@
 	"settings.box_name_placeholder": "e.g. Ask Box, Art Requests",
 	"settings.notifications": "Notifications",
 	"settings.notify_enabled": "Notify me on Bluesky when I receive a message",
-	"settings.notify_description": "You'll receive a mention from the bot account",
+	"settings.notify_description": "Turning this on will automatically follow the meyasuat-atto bot. You'll receive a mention from that bot when you get a message.",
 	"settings.language": "Language",
 	"settings.theme": "Theme",
 	"settings.theme_light": "Light",
