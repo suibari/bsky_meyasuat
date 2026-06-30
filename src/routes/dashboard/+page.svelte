@@ -128,7 +128,7 @@
 </script>
 
 <svelte:head>
-	<title>{boxName} - {$t('app.name')}</title>
+	<title>{$t('dashboard.page_title', { values: { box: boxName } })} - {$t('app.name')}</title>
 </svelte:head>
 
 <div class="max-w-3xl mx-auto px-4 py-8">

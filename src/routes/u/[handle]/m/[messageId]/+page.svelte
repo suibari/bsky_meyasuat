@@ -14,6 +14,12 @@
 	const ogDescription = $derived(
 		(data.message.answer ?? data.message.body).slice(0, 100)
 	);
+	const questionTitleText = $derived(
+		data.message.body.length > 30 ? data.message.body.slice(0, 30) + '…' : data.message.body
+	);
+	const titleText = $derived(
+		`${questionTitleText} - ${data.creator.displayName ?? data.creator.handle}${$t('submit.title', { values: { box: boxName } })}`
+	);
 
 	let answerText = $state('');
 	let submitting = $state(false);
@@ -87,8 +93,8 @@
 </script>
 
 <svelte:head>
-	<title>{data.creator.displayName ?? data.creator.handle} - {$t('app.name')}</title>
-	<meta property="og:title" content="{data.creator.displayName ?? data.creator.handle} への{boxName}" />
+	<title>{titleText} - {$t('app.name')}</title>
+	<meta property="og:title" content={titleText} />
 	<meta property="og:description" content={ogDescription} />
 	<meta property="og:image" content={ogUrl} />
 	<meta property="og:image:width" content="1200" />

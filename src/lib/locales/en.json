@@ -34,6 +34,7 @@
 	"submit.error.server": "A server error occurred",
 	"submit.char_count": "{count} / 1000",
 	"dashboard.title": "Meyasubako",
+	"dashboard.page_title": "Your {box}",
 	"dashboard.empty": "No messages yet",
 	"dashboard.empty_sub": "Share your {box} URL to get started",
 	"dashboard.empty_unread": "No unread messages",
