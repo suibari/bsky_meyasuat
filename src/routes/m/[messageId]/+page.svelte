@@ -4,6 +4,7 @@
 
 	let { data }: { data: PageData } = $props();
 
+	const boxName = $derived(data.creator.boxName?.trim() || 'めやすばこ');
 	const ogUrl = $derived(`${data.appUrl}/api/og/${data.message.id}`);
 	const pageUrl = $derived(`${data.appUrl}/m/${data.message.id}`);
 	const replyText = $derived(pageUrl);
@@ -19,7 +20,7 @@
 
 <svelte:head>
 	<title>{data.creator.displayName ?? data.creator.handle} - {$t('app.name')}</title>
-	<meta property="og:title" content="{data.creator.displayName ?? data.creator.handle} へのめやすあっと" />
+	<meta property="og:title" content="{data.creator.displayName ?? data.creator.handle} への{boxName}" />
 	<meta property="og:description" content={data.message.body.slice(0, 100)} />
 	<meta property="og:image" content={ogUrl} />
 	<meta property="og:image:width" content="1200" />
@@ -30,7 +31,7 @@
 </svelte:head>
 
 <div class="max-w-lg mx-auto px-4 py-10">
-	<!-- クリエイター -->
+	<!-- 募集者 -->
 	<div class="flex items-center gap-3 mb-6">
 		{#if data.creator.avatarUrl}
 			<img src={data.creator.avatarUrl} alt="" class="w-10 h-10 rounded-full object-cover" />

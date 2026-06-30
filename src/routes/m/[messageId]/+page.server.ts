@@ -24,7 +24,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			did: creator.did,
 			handle: creator.handle,
 			displayName: creator.displayName,
-			avatarUrl: creator.avatarUrl
+			avatarUrl: creator.avatarUrl,
+			boxName: creator.boxName
 		},
 		appUrl
 	};

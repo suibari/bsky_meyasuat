@@ -4,6 +4,7 @@ export type User = {
 	displayName: string | null;
 	avatarUrl: string | null;
 	notifyEnabled: boolean;
+	boxName: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -46,6 +47,7 @@ function toUser(row: Record<string, unknown>): User {
 		displayName: (row.display_name as string | null) ?? null,
 		avatarUrl: (row.avatar_url as string | null) ?? null,
 		notifyEnabled: row.notify_enabled as boolean,
+		boxName: (row.box_name as string | null) ?? null,
 		createdAt: row.created_at as string,
 		updatedAt: row.updated_at as string
 	};
@@ -106,12 +108,13 @@ export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & 
 	return toUser(rows[0]);
 }
 
-export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl' | 'notifyEnabled'>>): Promise<void> {
+export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl' | 'notifyEnabled' | 'boxName'>>): Promise<void> {
 	const body: Record<string, unknown> = { updated_at: new Date().toISOString() };
 	if (patch.handle !== undefined) body.handle = patch.handle;
 	if (patch.displayName !== undefined) body.display_name = patch.displayName;
 	if (patch.avatarUrl !== undefined) body.avatar_url = patch.avatarUrl;
 	if (patch.notifyEnabled !== undefined) body.notify_enabled = patch.notifyEnabled;
+	if (patch.boxName !== undefined) body.box_name = patch.boxName;
 	await fetch(
 		`${env.POSTGREST_URL}/users?did=eq.${encodeURIComponent(did)}`,
 		{ method: 'PATCH', headers: headers(env), body: JSON.stringify(body) }

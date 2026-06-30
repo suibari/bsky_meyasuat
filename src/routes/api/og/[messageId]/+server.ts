@@ -56,6 +56,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const body =
 		message.body.length > 140 ? message.body.slice(0, 140) + '…' : message.body;
 	const handle = creator?.handle ?? 'unknown';
+	const boxName = creator?.boxName?.trim() || 'めやすばこ';
 
 	const svg = await satori(
 		{
@@ -97,7 +98,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								marginTop: '48px',
 								fontFamily: '"KillGothic"'
 							},
-							children: `@${handle} へのめやすあっと`
+							children: `@${handle} への${boxName}`
 						}
 					},
 					{

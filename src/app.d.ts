@@ -13,6 +13,7 @@ declare global {
 				displayName: string | null;
 				avatarUrl: string | null;
 				notifyEnabled: boolean;
+				boxName: string | null;
 			} | null;
 			sessionId: string | null;
 			lang: 'ja' | 'en';

@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			did: user.did,
 			handle: user.handle,
 			displayName: user.displayName,
-			avatarUrl: user.avatarUrl
+			avatarUrl: user.avatarUrl,
+			boxName: user.boxName
 		},
 		appUrl,
 		turnstileSiteKey

@@ -5,6 +5,8 @@
 
 	let { data }: { data: PageData } = $props();
 
+	const boxName = $derived(data.creator.boxName?.trim() || $t('dashboard.title'));
+
 	let body = $state('');
 	let images: File[] = $state([]);
 	let turnstileToken = $state('');
@@ -90,12 +92,12 @@
 
 <svelte:head>
 	<title>
-		{data.creator.displayName ?? data.creator.handle}{$t('submit.title')} - {$t('app.name')}
+		{data.creator.displayName ?? data.creator.handle}{$t('submit.title', { values: { box: boxName } })} - {$t('app.name')}
 	</title>
 </svelte:head>
 
 <div class="max-w-lg mx-auto px-4 py-10">
-	<!-- クリエイターカード -->
+	<!-- 募集者カード -->
 	<div class="flex items-center gap-3 mb-6">
 		<a href="https://bsky.app/profile/{data.creator.handle}" target="_blank" rel="noopener noreferrer">
 			{#if data.creator.avatarUrl}

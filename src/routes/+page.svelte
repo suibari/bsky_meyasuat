@@ -103,7 +103,7 @@
 			{$t('about.title')}
 		</h2>
 		<div class="text-sm text-slate-300 space-y-3">
-			<p>めやすあっとはAT protocolのクリエイターのための無料の目安箱サービスです。</p>
+			<p>めやすあっとはAT protocol上で使える、無料の目安箱サービスです。</p>
 			<ul class="space-y-1 pl-1">
 				<li>・あなたの目安箱をつくって、みんなに公開しよう</li>
 				<li>・目安箱は匿名で投稿可能</li>

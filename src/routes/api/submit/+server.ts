@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const allowed = await checkRateLimit(env, ipHash, creatorDid, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX);
 	if (!allowed) error(429, 'Rate limit exceeded');
 
-	// クリエイター存在確認
+	// 募集者存在確認
 	const creator = await getUserByDid(env, creatorDid);
 	if (!creator) error(404, 'Creator not found');
 

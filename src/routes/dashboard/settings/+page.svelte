@@ -20,6 +20,25 @@
 		<p class="mb-4 text-sm text-green-400 bg-green-950 rounded-lg px-3 py-2">{$t('settings.saved')}</p>
 	{/if}
 
+	<!-- めやすばこの名前 -->
+	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
+		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.box_name')}</h2>
+		<form method="POST" action="?/saveBoxName" use:enhance>
+			<input
+				type="text"
+				name="box_name"
+				maxlength="30"
+				value={data.user.boxName ?? ''}
+				placeholder={$t('settings.box_name_placeholder')}
+				class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+			/>
+			<p class="text-xs text-slate-400 mt-1.5">{$t('settings.box_name_description')}</p>
+			<button type="submit" class="mt-4 text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors">
+				{$t('settings.save')}
+			</button>
+		</form>
+	</section>
+
 	<!-- 通知 -->
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.notifications')}</h2>

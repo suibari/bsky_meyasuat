@@ -8,6 +8,7 @@
 	let copied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
 	const boxUrl = $derived(`${data.appUrl}/u/${data.user?.handle}`);
+	const boxName = $derived(data.user?.boxName?.trim() || $t('dashboard.title'));
 
 	async function copyUrl() {
 		await navigator.clipboard.writeText(boxUrl);
@@ -62,14 +63,14 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.title')} - {$t('app.name')}</title>
+	<title>{boxName} - {$t('app.name')}</title>
 </svelte:head>
 
 <div class="max-w-3xl mx-auto px-4 py-8">
 	<!-- URL シェア -->
 	<div class="bg-primary-950 border border-primary-800 rounded-2xl p-4 mb-6 flex items-center gap-3">
 		<div class="flex-1 min-w-0">
-			<p class="text-xs text-primary-400 font-medium mb-0.5">{$t('dashboard.your_url')}</p>
+			<p class="text-xs text-primary-400 font-medium mb-0.5">{$t('dashboard.your_url', { values: { box: boxName } })}</p>
 			<p class="text-sm text-slate-300 truncate font-mono">{boxUrl}</p>
 		</div>
 		<button
@@ -81,7 +82,7 @@
 	</div>
 
 	<div class="flex items-center justify-between mb-4">
-		<h1 class="text-xl font-bold text-slate-100">{$t('dashboard.title')}</h1>
+		<h1 class="text-xl font-bold text-slate-100">{boxName}</h1>
 		{#if data.unreadCount > 0}
 			<span class="text-xs bg-accent-500 text-white px-2.5 py-1 rounded-full font-medium">
 				{$t('dashboard.unread', { values: { count: data.unreadCount } })}
