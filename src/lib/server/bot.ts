@@ -14,7 +14,7 @@ export async function notifyCreator(
 	});
 
 	const appUrl = env.PUBLIC_APP_URL;
-	const msgUrl = `${appUrl}/m/${messageId}`;
+	const msgUrl = `${appUrl}/u/${creatorHandle}/m/${messageId}`;
 	const text = `@${creatorHandle} めやすあっとが届きました！\n${msgUrl}`;
 
 	const rt = new RichText({ text });

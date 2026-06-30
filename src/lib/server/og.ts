@@ -51,4 +51,30 @@ export async function fetchImageAsDataUri(url: string): Promise<string | null> {
 	}
 }
 
+export function buildQuestionNode(body: string) {
+	const len = body.length;
+	const fontSize = len <= 30 ? 64 : len <= 60 ? 48 : len <= 100 ? 36 : 28;
+	const emphasize = len > 60;
+	return {
+		type: 'div',
+		props: {
+			style: {
+				display: 'flex',
+				fontSize: `${fontSize}px`,
+				fontWeight: emphasize ? 700 : 400,
+				color: emphasize ? '#0369a1' : '#0f172a',
+				lineHeight: 1.5,
+				maxWidth: '1000px',
+				textAlign: 'center',
+				wordBreak: 'break-all',
+				fontFamily: '"Noto Sans JP"',
+				...(emphasize
+					? { background: '#e0f2fe', padding: '24px 32px', borderRadius: '24px' }
+					: {})
+			},
+			children: body
+		}
+	};
+}
+
 export { satori, Resvg };

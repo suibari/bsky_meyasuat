@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { getUserByHandle } from '$lib/server/db.js';
+import { getUserByHandle, getAnsweredMessages } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-export const load: PageServerLoad = async ({ params, platform }) => {
+export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	const handle = params.handle.replace(/^@/, '');
 
@@ -20,6 +20,16 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 
 	const appUrl = env?.PUBLIC_APP_URL ?? '';
 	const turnstileSiteKey = env?.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
+
+	const answeredQA = env
+		? (await getAnsweredMessages(env, user.did, { limit: 10, offset: page * 10 })).map((m) => ({
+				id: m.id,
+				body: m.body,
+				answer: m.answer ?? '',
+				answeredAt: m.answeredAt ?? ''
+			}))
+		: [];
 
 	return {
 		creator: {
@@ -30,6 +40,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			boxName: user.boxName
 		},
 		appUrl,
-		turnstileSiteKey
+		turnstileSiteKey,
+		answeredQA,
+		page
 	};
 };

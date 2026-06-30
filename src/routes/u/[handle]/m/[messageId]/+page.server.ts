@@ -1,9 +1,9 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
-import { getMessageById, getUserByDid } from '$lib/server/db.js';
+import { error, redirect } from '@sveltejs/kit';
+import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
-export const load: PageServerLoad = async ({ params, platform }) => {
+export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	const env = platform?.env;
 	if (!env) error(503, 'Service unavailable');
 
@@ -13,7 +13,18 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 	const creator = await getUserByDid(env, message.creatorDid);
 	if (!creator) error(404, 'Creator not found');
 
+	const requestedHandle = params.handle.replace(/^@/, '');
+	if (requestedHandle !== creator.handle) {
+		redirect(301, `/u/${creator.handle}/m/${message.id}`);
+	}
+
 	const appUrl = env.PUBLIC_APP_URL || '';
+	const isOwner = locals.user?.did === message.creatorDid;
+
+	const relatedQA = await getAnsweredMessages(env, message.creatorDid, {
+		limit: 10,
+		excludeId: message.id
+	});
 
 	return {
 		message: {
@@ -27,6 +38,13 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			avatarUrl: creator.avatarUrl,
 			boxName: creator.boxName
 		},
-		appUrl
+		appUrl,
+		isOwner,
+		relatedQA: relatedQA.map((m) => ({
+			id: m.id,
+			body: m.body,
+			answer: m.answer ?? '',
+			answeredAt: m.answeredAt ?? ''
+		}))
 	};
 };

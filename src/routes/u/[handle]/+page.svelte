@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { Turnstile } from 'svelte-turnstile';
+	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -191,6 +192,16 @@
 			>
 				{submitting ? $t('submit.sending') : $t('submit.button')}
 			</button>
+		</div>
+	{/if}
+
+	<AnsweredQAList items={data.answeredQA} handle={data.creator.handle} title={$t('box.answered_qa_title')} />
+
+	{#if data.answeredQA.length === 10}
+		<div class="mt-4 text-center">
+			<a href="?page={data.page + 1}" class="text-sm text-primary-400 hover:underline">
+				{$t('box.view_more')}
+			</a>
 		</div>
 	{/if}
 </div>

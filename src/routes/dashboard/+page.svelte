@@ -46,12 +46,12 @@
 	}
 
 	function replyUrl(handle: string, messageId: string): string {
-		const text = `${data.appUrl}/m/${messageId}`;
+		const text = `${data.appUrl}/u/${handle}/m/${messageId}`;
 		return `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`;
 	}
 
-	function xReplyUrl(messageId: string): string {
-		return `https://twitter.com/intent/tweet?text=${encodeURIComponent(`${data.appUrl}/m/${messageId}`)}`;
+	function xReplyUrl(handle: string, messageId: string): string {
+		return `https://twitter.com/intent/tweet?text=${encodeURIComponent(`${data.appUrl}/u/${handle}/m/${messageId}`)}`;
 	}
 
 	function formatDate(iso: string): string {
@@ -169,7 +169,7 @@
 								{$t('dashboard.reply')}
 							</a>
 							<a
-								href={xReplyUrl(msg.id)}
+								href={xReplyUrl(data.user?.handle ?? '', msg.id)}
 								target="_blank"
 								rel="noopener noreferrer"
 								onclick={() => { if (!msg.isRead) markRead(msg.id); }}

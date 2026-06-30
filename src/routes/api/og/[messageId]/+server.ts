@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid } from '$lib/server/db.js';
-import { ensureInit, loadFonts, satori, Resvg } from '$lib/server/og.js';
+import { ensureInit, loadFonts, buildQuestionNode, satori, Resvg } from '$lib/server/og.js';
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
@@ -32,10 +32,9 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 					height: '630px',
 					display: 'flex',
 					flexDirection: 'column',
-					alignItems: 'center',
-					justifyContent: 'center',
-					background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-					padding: '80px',
+					justifyContent: 'space-between',
+					background: '#ffffff',
+					padding: '64px',
 					fontFamily: '"Noto Sans JP", sans-serif'
 				},
 				children: [
@@ -43,40 +42,71 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 						type: 'div',
 						props: {
 							style: {
-								fontSize: body.length > 60 ? '32px' : '40px',
-								color: '#f1f5f9',
-								lineHeight: 1.7,
-								maxWidth: '1000px',
-								textAlign: 'center',
-								wordBreak: 'break-all',
-								fontFamily: '"Noto Sans JP"'
+								display: 'flex',
+								flex: 1,
+								alignItems: 'center',
+								justifyContent: 'center'
 							},
-							children: body
+							children: buildQuestionNode(body)
 						}
 					},
 					{
 						type: 'div',
 						props: {
 							style: {
-								fontSize: '22px',
-								color: '#a5b4fc',
-								marginTop: '48px',
-								fontFamily: '"KillGothic"'
+								display: 'flex',
+								alignItems: 'flex-end',
+								justifyContent: 'space-between'
 							},
-							children: `@${handle} への${boxName}`
-						}
-					},
-					{
-						type: 'div',
-						props: {
-							style: {
-								fontSize: '16px',
-								color: '#6366f1',
-								marginTop: '12px',
-								letterSpacing: '0.05em',
-								fontFamily: '"KillGothic"'
-							},
-							children: 'meyasuat.suibari.com'
+							children: [
+								{
+									type: 'div',
+									props: {
+										style: {
+											fontSize: '22px',
+											color: '#64748b',
+											fontFamily: '"Noto Sans JP"'
+										},
+										children: `@${handle} への${boxName}`
+									}
+								},
+								{
+									type: 'div',
+									props: {
+										style: {
+											display: 'flex',
+											flexDirection: 'column',
+											alignItems: 'flex-end',
+											gap: '4px'
+										},
+										children: [
+											{
+												type: 'div',
+												props: {
+													style: {
+														fontSize: '22px',
+														fontWeight: 700,
+														color: '#0ea5e9',
+														fontFamily: '"KillGothic"'
+													},
+													children: 'めやすあっと'
+												}
+											},
+											{
+												type: 'div',
+												props: {
+													style: {
+														fontSize: '16px',
+														color: '#94a3b8',
+														fontFamily: '"KillGothic"'
+													},
+													children: 'meyasuat.suibari.com'
+												}
+											}
+										]
+									}
+								}
+							]
 						}
 					}
 				]

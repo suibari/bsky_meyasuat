@@ -77,7 +77,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								fontSize: '52px',
 								fontWeight: 700,
 								color: '#0369a1',
-								fontFamily: '"KillGothic"'
+								fontFamily: '"Noto Sans JP"'
 							},
 							children: `${name}の${boxName}`
 						}

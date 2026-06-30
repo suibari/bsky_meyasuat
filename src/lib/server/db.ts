@@ -25,6 +25,8 @@ export type Message = {
 	botPostUri: string | null;
 	ipHash: string;
 	createdAt: string;
+	answer: string | null;
+	answeredAt: string | null;
 };
 
 type Env = App.Platform['env'];
@@ -62,7 +64,9 @@ function toMessage(row: Record<string, unknown>): Message {
 		isRead: row.is_read as boolean,
 		botPostUri: (row.bot_post_uri as string | null) ?? null,
 		ipHash: row.ip_hash as string,
-		createdAt: row.created_at as string
+		createdAt: row.created_at as string,
+		answer: (row.answer as string | null) ?? null,
+		answeredAt: (row.answered_at as string | null) ?? null
 	};
 }
 
@@ -226,6 +230,31 @@ export async function deleteMessage(env: Env, id: string, creatorDid: string): P
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
 		{ method: 'DELETE', headers: headers(env) }
 	);
+}
+
+export async function answerMessage(env: Env, id: string, creatorDid: string, answer: string): Promise<void> {
+	await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		{
+			method: 'PATCH',
+			headers: headers(env),
+			body: JSON.stringify({ answer, answered_at: new Date().toISOString() })
+		}
+	);
+}
+
+export async function getAnsweredMessages(
+	env: Env,
+	creatorDid: string,
+	opts: { limit?: number; offset?: number; excludeId?: string } = {}
+): Promise<Message[]> {
+	const { limit = 10, offset = 0, excludeId } = opts;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
+	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
+	const res = await fetch(url, { headers: headers(env) });
+	if (!res.ok) return [];
+	const rows = await res.json() as Record<string, unknown>[];
+	return rows.map(toMessage);
 }
 
 export async function updateMessageBotUri(env: Env, id: string, botPostUri: string): Promise<void> {
