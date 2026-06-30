@@ -15,7 +15,7 @@
 	"signin.description": "めやすばこを開設するにはログインが必要です",
 	"oauth.callback.loading": "ログイン処理中...",
 	"oauth.callback.error": "ログインに失敗しました。もう一度お試しください。",
-	"submit.title": "の{box}",
+	"submit.title": " の {box}",
 	"submit.body_label": "メッセージ",
 	"submit.body_placeholder": "匿名でメッセージを送れます（最大1000文字）",
 	"submit.images_label": "画像を添付（最大4枚）",

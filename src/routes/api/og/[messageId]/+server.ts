@@ -128,7 +128,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 														color: '#64748b',
 														fontFamily: '"Noto Sans JP"'
 													},
-													children: `${creatorName}の${boxName}`
+													children: `${creatorName} の ${boxName}`
 												}
 											}
 										]
