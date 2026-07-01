@@ -82,9 +82,15 @@
 
 <!-- ヒーロー -->
 <section class="bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
-	<h1 class="mb-8">
+	<h1 class="mb-8 flex items-center justify-center gap-3 sm:gap-4">
+		<img
+			src="/icon_meyasuat_white.png"
+			alt=""
+			aria-hidden="true"
+			class="h-12 w-12 shrink-0 sm:h-20 sm:w-20 md:h-28 md:w-28"
+		/>
 		{#if data.lang === 'ja'}
-			<img src="/title.png" alt={$t('app.name')} class="w-full sm:w-auto sm:h-20 md:h-28 mx-auto" />
+			<img src="/title.png" alt={$t('app.name')} class="h-12 w-auto sm:h-20 md:h-28" />
 		{:else}
 			<span class="font-killgothic text-5xl sm:text-6xl md:text-8xl font-bold text-white whitespace-nowrap">{$t('app.name')}</span>
 		{/if}

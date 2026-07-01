@@ -35,6 +35,18 @@ export async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; ki
 	return fontCache;
 }
 
+let iconCache: string | null = null;
+
+export async function loadIcon(appUrl: string): Promise<string> {
+	if (iconCache) return iconCache;
+	const res = await fetch(`${appUrl}/icon_meyasuat_cyan.png`);
+	const bytes = new Uint8Array(await res.arrayBuffer());
+	let binary = '';
+	for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+	iconCache = `data:image/png;base64,${btoa(binary)}`;
+	return iconCache;
+}
+
 export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promise<string | null> {
 	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 	const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;

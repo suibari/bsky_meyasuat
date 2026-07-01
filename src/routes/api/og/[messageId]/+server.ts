@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid } from '$lib/server/db.js';
-import { ensureInit, loadFonts, buildQuestionNode, satori, Resvg, fetchImageAsDataUri } from '$lib/server/og.js';
+import { ensureInit, loadFonts, loadIcon, buildQuestionNode, satori, Resvg, fetchImageAsDataUri } from '$lib/server/og.js';
 
 function buildAvatarNode(dataUri: string | null, label: string, size: number) {
 	return dataUri
@@ -51,6 +51,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
+	const icon = await loadIcon(appUrl);
 
 	// 記名メッセージは上段に送信者バッジが入り使えるスペースが狭くなるため、
 	// 質問文の最大長を短くしてフォントが小さくなりすぎないようにする
@@ -145,34 +146,43 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 								{
 									type: 'div',
 									props: {
-										style: {
-											display: 'flex',
-											flexDirection: 'column',
-											alignItems: 'flex-end',
-											gap: '4px'
-										},
+										style: { display: 'flex', alignItems: 'center', gap: '12px' },
 										children: [
+											{ type: 'img', props: { src: icon, width: 52, height: 52 } },
 											{
 												type: 'div',
 												props: {
 													style: {
-														fontSize: '32px',
-														fontWeight: 700,
-														color: '#0ea5e9',
-														fontFamily: '"KillGothic"'
+														display: 'flex',
+														flexDirection: 'column',
+														alignItems: 'flex-end',
+														gap: '4px'
 													},
-													children: 'めやすあっと'
-												}
-											},
-											{
-												type: 'div',
-												props: {
-													style: {
-														fontSize: '20px',
-														color: '#94a3b8',
-														fontFamily: '"KillGothic"'
-													},
-													children: 'meyasuat.suibari.com'
+													children: [
+														{
+															type: 'div',
+															props: {
+																style: {
+																	fontSize: '32px',
+																	fontWeight: 700,
+																	color: '#0ea5e9',
+																	fontFamily: '"KillGothic"'
+																},
+																children: 'めやすあっと'
+															}
+														},
+														{
+															type: 'div',
+															props: {
+																style: {
+																	fontSize: '20px',
+																	color: '#94a3b8',
+																	fontFamily: '"KillGothic"'
+																},
+																children: 'meyasuat.suibari.com'
+															}
+														}
+													]
 												}
 											}
 										]
