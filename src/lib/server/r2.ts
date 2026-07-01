@@ -1,5 +1,10 @@
-export function r2KeyToUrl(env: App.Platform['env'], key: string): string {
-	return `${env.R2_PUBLIC_URL}/${key}`;
+export function r2KeyToUrl(key: string): string {
+	const safeKey = key
+		.split('/')
+		.filter((part) => part.length > 0)
+		.map((part) => encodeURIComponent(part))
+		.join('/');
+	return `/api/images/${safeKey}`;
 }
 
 export function messageImageKey(messageId: string, index: number, ext = 'jpg'): string {

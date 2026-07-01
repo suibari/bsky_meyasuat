@@ -42,7 +42,7 @@ export async function resolveMessageImageUrls(
 	cache?: Map<string, string[]>
 ): Promise<string[]> {
 	if (message.imageKeys.length > 0) {
-		return message.imageKeys.map((k) => r2KeyToUrl(env, k));
+		return message.imageKeys.map((k) => r2KeyToUrl(k));
 	}
 	if (!message.questionRecordUri) return [];
 

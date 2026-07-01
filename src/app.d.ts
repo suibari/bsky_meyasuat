@@ -31,7 +31,7 @@ declare global {
 				CF_ACCESS_CLIENT_SECRET: string;
 				BOT_HANDLE: string;
 				BOT_APP_PASSWORD: string;
-				R2_PUBLIC_URL: string;
+				R2_PUBLIC_URL?: string;
 				TURNSTILE_SECRET_KEY: string;
 				SESSION_SECRET: string;
 				PUBLIC_APP_URL: string;
