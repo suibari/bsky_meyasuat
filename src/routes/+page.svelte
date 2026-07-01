@@ -13,6 +13,15 @@
 	function onDialogClick(e: MouseEvent) {
 		if ((e.target as HTMLElement).tagName === 'DIALOG') closeAbout();
 	}
+
+	const features = [
+		{ key: 'landing.feature1', icon: 'inbox' },
+		{ key: 'landing.feature2', icon: 'user' },
+		{ key: 'landing.feature3', icon: 'text' },
+		{ key: 'landing.feature4', icon: 'image' },
+		{ key: 'landing.feature5', icon: 'bell' },
+		{ key: 'landing.feature6', icon: 'database' }
+	];
 </script>
 
 <svelte:head>
@@ -36,6 +45,52 @@
 	</h1>
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}
+	</p>
+	<div class="mx-auto mb-3 grid max-w-3xl grid-cols-2 gap-2 text-left text-xs text-slate-200 md:grid-cols-3">
+		{#each features as feature}
+			<span class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 shadow-sm">
+				<span class="grid size-7 shrink-0 place-items-center rounded-md bg-primary-950 text-primary-300">
+					{#if feature.icon === 'inbox'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M22 12h-6l-2 3h-4l-2-3H2" />
+							<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+						</svg>
+					{:else if feature.icon === 'user'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M20 21a8 8 0 0 0-16 0" />
+							<circle cx="12" cy="7" r="4" />
+						</svg>
+					{:else if feature.icon === 'text'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M17 6.1H3" />
+							<path d="M21 12.1H3" />
+							<path d="M15.1 18H3" />
+						</svg>
+					{:else if feature.icon === 'image'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+							<circle cx="9" cy="9" r="2" />
+							<path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+						</svg>
+					{:else if feature.icon === 'bell'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M10.3 21a2 2 0 0 0 3.4 0" />
+							<path d="M18 8A6 6 0 0 0 6 8c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+						</svg>
+					{:else}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<ellipse cx="12" cy="5" rx="9" ry="3" />
+							<path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+							<path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" />
+						</svg>
+					{/if}
+				</span>
+				<span class="leading-snug">{$t(feature.key)}</span>
+			</span>
+		{/each}
+	</div>
+	<p class="mb-8 text-xs text-slate-500">
+		{$t('landing.feature_note')}
 	</p>
 	{#if data.user}
 		<a
@@ -103,18 +158,34 @@
 			{$t('about.title')}
 		</h2>
 		<div class="text-sm text-slate-300 space-y-3">
-			<p>めやすあっとはAT protocol上で使える、無料の目安箱サービスです。</p>
+			<p>{$t('about.lead')}</p>
 			<ul class="space-y-1 pl-1">
-				<li>・あなたの目安箱をつくって、みんなに公開しよう</li>
-				<li>・目安箱は匿名で投稿可能</li>
-				<li>・回答したらSNSでシェアしよう</li>
+				<li>・{$t('about.feature1')}</li>
+				<li>・{$t('about.feature2')}</li>
+				<li>・{$t('about.feature3')}</li>
+				<li>・{$t('about.feature4')}</li>
 			</ul>
 			<hr class="border-slate-700" />
 			<ul class="space-y-1 text-slate-400">
-				<li>本アプリはすいばり個人が趣味で開発運営しています。</li>
-				<li>本アプリは目安箱データをアプリ側データベースに保存します。</li>
-				<li>個人開発のため手厚いサポートはできず、突如サービスを終了する場合があります。</li>
-				<li>このページに記載される文章は予告なく変更する場合があります。</li>
+				<li>
+					{$t('about.notice1_prefix')}<a
+						href="https://bsky.app/profile/suibari.com"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-primary-400 underline underline-offset-2 transition-colors hover:text-primary-300"
+					>{$t('about.notice1_name')}</a>{$t('about.notice1_suffix')}
+				</li>
+				<li>{$t('about.notice2')}</li>
+				<li>{$t('about.notice3')}</li>
+				<li>{$t('about.notice4')}</li>
+				<li>
+					<a
+						href="https://github.com/suibari/bsky_meyasuat"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-primary-400 underline underline-offset-2 transition-colors hover:text-primary-300"
+					>{$t('about.github')}</a>
+				</li>
 			</ul>
 		</div>
 		<div class="mt-6 flex justify-end">
