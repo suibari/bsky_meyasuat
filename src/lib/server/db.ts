@@ -31,6 +31,10 @@ export type Message = {
 	senderDid: string | null;
 	questionRecordUri: string | null;
 	questionRecordCid: string | null;
+	answerRecordUri: string | null;
+	answerRecordCid: string | null;
+	senderDeletedAt: string | null;
+	answerDeletedAt: string | null;
 };
 
 type Env = App.Platform['env'];
@@ -74,7 +78,11 @@ function toMessage(row: Record<string, unknown>): Message {
 		answeredAt: (row.answered_at as string | null) ?? null,
 		senderDid: (row.sender_did as string | null) ?? null,
 		questionRecordUri: (row.question_record_uri as string | null) ?? null,
-		questionRecordCid: (row.question_record_cid as string | null) ?? null
+		questionRecordCid: (row.question_record_cid as string | null) ?? null,
+		answerRecordUri: (row.answer_record_uri as string | null) ?? null,
+		answerRecordCid: (row.answer_record_cid as string | null) ?? null,
+		senderDeletedAt: (row.sender_deleted_at as string | null) ?? null,
+		answerDeletedAt: (row.answer_deleted_at as string | null) ?? null
 	};
 }
 
@@ -248,9 +256,29 @@ export async function answerMessage(env: Env, id: string, creatorDid: string, an
 		{
 			method: 'PATCH',
 			headers: headers(env),
-			body: JSON.stringify({ answer, answered_at: new Date().toISOString() })
+			body: JSON.stringify({ answer, answered_at: new Date().toISOString(), answer_deleted_at: null })
 		}
 	);
+}
+
+export async function updateMessageAnswerRef(
+	env: Env,
+	id: string,
+	creatorDid: string,
+	uri: string,
+	cid: string
+): Promise<boolean> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		{
+			method: 'PATCH',
+			headers: { ...headers(env), Prefer: 'return=representation' },
+			body: JSON.stringify({ answer_record_uri: uri, answer_record_cid: cid })
+		}
+	);
+	if (!res.ok) return false;
+	const rows = await res.json() as unknown[];
+	return rows.length > 0;
 }
 
 export async function getAnsweredMessages(
@@ -259,8 +287,21 @@ export async function getAnsweredMessages(
 	opts: { limit?: number; offset?: number; excludeId?: string } = {}
 ): Promise<Message[]> {
 	const { limit = 10, offset = 0, excludeId } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
 	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
+	const res = await fetch(url, { headers: headers(env) });
+	if (!res.ok) return [];
+	const rows = await res.json() as Record<string, unknown>[];
+	return rows.map(toMessage);
+}
+
+export async function getSentMessages(
+	env: Env,
+	senderDid: string,
+	opts: { limit?: number; offset?: number } = {}
+): Promise<Message[]> {
+	const { limit = 20, offset = 0 } = opts;
+	const url = `${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&sender_deleted_at=is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];
@@ -287,6 +328,44 @@ export async function updateMessageQuestionRef(
 			method: 'PATCH',
 			headers: { ...headers(env), Prefer: 'return=representation' },
 			body: JSON.stringify({ question_record_uri: uri, question_record_cid: cid })
+		}
+	);
+	if (!res.ok) return false;
+	const rows = await res.json() as unknown[];
+	return rows.length > 0;
+}
+
+export async function deleteQuestionForSender(env: Env, id: string, senderDid: string): Promise<boolean> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}`,
+		{
+			method: 'PATCH',
+			headers: { ...headers(env), Prefer: 'return=representation' },
+			body: JSON.stringify({
+				question_record_uri: null,
+				question_record_cid: null,
+				sender_deleted_at: new Date().toISOString()
+			})
+		}
+	);
+	if (!res.ok) return false;
+	const rows = await res.json() as unknown[];
+	return rows.length > 0;
+}
+
+export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: string): Promise<boolean> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		{
+			method: 'PATCH',
+			headers: { ...headers(env), Prefer: 'return=representation' },
+			body: JSON.stringify({
+				answer: null,
+				answered_at: null,
+				answer_record_uri: null,
+				answer_record_cid: null,
+				answer_deleted_at: new Date().toISOString()
+			})
 		}
 	);
 	if (!res.ok) return false;

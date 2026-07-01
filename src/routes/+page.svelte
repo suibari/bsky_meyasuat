@@ -1,17 +1,63 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
 	import { PUBLIC_APP_URL } from '$env/static/public';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let showAbout = $state(false);
+	let handle = $state('');
+	let loading = $state(false);
+	let error = $state('');
 
 	function openAbout() { showAbout = true; }
 	function closeAbout() { showAbout = false; }
 
 	function onDialogClick(e: MouseEvent) {
 		if ((e.target as HTMLElement).tagName === 'DIALOG') closeAbout();
+	}
+
+	// ローカル開発では OAuth callback と同一オリジン (127.0.0.1) で state を扱う。
+	onMount(() => {
+		if (window.location.hostname === 'localhost') {
+			window.location.replace(
+				window.location.href.replace('http://localhost', 'http://127.0.0.1')
+			);
+		}
+	});
+
+	function isLocalhost(url: string): boolean {
+		return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
+	}
+
+	async function signin() {
+		if (!browser) return;
+		const h = handle.trim().replace(/^@/, '');
+		if (!h) return;
+
+		loading = true;
+		error = '';
+		try {
+			const local = isLocalhost(data.appUrl) || isLocalhost(location.origin);
+			const clientId = local
+				? (() => {
+						const port = location.port;
+						const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;
+						return `http://localhost?redirect_uri=${encodeURIComponent(redirectUri)}`;
+					})()
+				: `${data.appUrl}/oauth/client-metadata.json`;
+			const client = await BrowserOAuthClient.load({
+				clientId,
+				handleResolver: 'https://bsky.social'
+			});
+			await client.signIn(h, data.redirectTo ? { state: data.redirectTo } : undefined);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Unknown error';
+			loading = false;
+		}
 	}
 
 	const features = [
@@ -100,12 +146,42 @@
 			{$t('nav.dashboard')} →
 		</a>
 	{:else}
-		<a
-			href="/signin"
-			class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-sm"
-		>
-			{$t('landing.cta')}
-		</a>
+		<div class="mx-auto w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-left shadow-sm">
+			{#if loading}
+				<div class="py-4 text-center text-slate-400">
+					<div class="mb-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
+					<p class="text-sm">{$t('signin.loading')}</p>
+				</div>
+			{:else}
+				{#if error}
+					<p class="mb-3 rounded-lg bg-red-950 px-3 py-2 text-sm text-red-400">{error}</p>
+				{/if}
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						signin();
+					}}
+				>
+					<label class="mb-1.5 block text-sm font-medium text-slate-300" for="landing-handle">
+						{$t('signin.handle_label')}
+					</label>
+					<input
+						id="landing-handle"
+						type="text"
+						bind:value={handle}
+						placeholder={$t('signin.handle_placeholder')}
+						autocomplete="username"
+						class="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+					/>
+					<button
+						type="submit"
+						class="w-full rounded-lg bg-primary-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+					>
+						{$t('landing.cta')}
+					</button>
+				</form>
+			{/if}
+		</div>
 		<p class="mt-4 text-sm text-slate-400">
 			<a
 				href="https://bsky.app"

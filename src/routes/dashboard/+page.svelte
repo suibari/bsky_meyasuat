@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
+	import { deleteRecordOnPds } from '$lib/client/oauthClient.js';
 	import { ogImageUrl, pageShareUrl } from '$lib/utils/share.js';
 	import type { PageData } from './$types';
 
@@ -10,11 +11,13 @@
 
 	let copied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
+	let deleteTargetType = $state<'message' | 'question' | 'answer'>('message');
 	let replyingTo = $state<string | null>(null);
 	let replyText = $state<string>('');
 	let sharingMessageId = $state<string | null>(null);
 	let isSubmittingReply = $state(false);
 	let replyError = $state<string | null>(null);
+	let deleteError = $state<string | null>(null);
 
 	const MAX_CHARS = 1000;
 
@@ -39,14 +42,11 @@
 
 	async function recordAnswerOnPds(msg: any, answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient }, { Agent }] = await Promise.all([
-				import('$lib/client/oauthClient.js'),
-				import('@atproto/api')
-			]);
+			const [{ createOAuthClient }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
 			const client = await createOAuthClient(data.appUrl);
 			const session = await client.restore(data.user?.did ?? '');
 			const agent = new Agent(session);
-			await agent.com.atproto.repo.createRecord({
+			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.user?.did ?? '',
 				collection: 'com.suibari.meyasuat.answer',
 				record: {
@@ -61,9 +61,25 @@
 					createdAt: new Date().toISOString()
 				}
 			});
+
+			await fetch(`/api/messages/${msg.id}/answer-ref`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ uri: created.data.uri, cid: created.data.cid })
+			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);
 		}
+	}
+
+	async function deleteQuestionOnPds(msg: any): Promise<void> {
+		if (!data.user || !msg.questionRecordUri) return;
+		await deleteRecordOnPds(data.appUrl, data.user.did, msg.questionRecordUri);
+	}
+
+	async function deleteAnswerOnPds(msg: any): Promise<void> {
+		if (!data.user || !msg.answerRecordUri) return;
+		await deleteRecordOnPds(data.appUrl, data.user.did, msg.answerRecordUri);
 	}
 
 	async function submitReply(msg: any) {
@@ -107,17 +123,44 @@
 		}
 	}
 
-	function confirmDelete(id: string) {
+	function confirmDelete(id: string, type: 'message' | 'question' | 'answer' = 'message') {
 		deleteTargetId = id;
+		deleteTargetType = type;
+		deleteError = null;
 	}
 
 	function cancelDelete() {
 		deleteTargetId = null;
+		deleteError = null;
 	}
 
 	async function executeDelete() {
 		if (!deleteTargetId) return;
-		await fetch(`/api/messages/${deleteTargetId}`, { method: 'DELETE' });
+		deleteError = null;
+		const target = data.messages.find((m) => m.id === deleteTargetId);
+		if (!target) {
+			deleteTargetId = null;
+			return;
+		}
+
+		try {
+			if (deleteTargetType === 'question') {
+				await deleteQuestionOnPds(target);
+				const res = await fetch(`/api/messages/${deleteTargetId}/question`, { method: 'DELETE' });
+				if (!res.ok) throw new Error('question-delete-failed');
+			} else if (deleteTargetType === 'answer') {
+				await deleteAnswerOnPds(target);
+				const res = await fetch(`/api/messages/${deleteTargetId}/answer`, { method: 'DELETE' });
+				if (!res.ok) throw new Error('answer-delete-failed');
+			} else {
+				const res = await fetch(`/api/messages/${deleteTargetId}`, { method: 'DELETE' });
+				if (!res.ok) throw new Error('message-delete-failed');
+			}
+		} catch (e) {
+			deleteError = $t('dashboard.delete_error');
+			return;
+		}
+
 		deleteTargetId = null;
 		await invalidateAll();
 	}
@@ -175,13 +218,25 @@
 		>
 			{$t('dashboard.tab_answered')}
 		</a>
+		<a
+			href="?tab=sent"
+			class="px-4 py-2 text-sm font-medium transition-colors rounded-t-lg {data.tab === 'sent' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-500 hover:text-slate-300'}"
+		>
+			{$t('dashboard.tab_sent')}
+		</a>
 	</div>
 
 	{#if data.messages.length === 0}
 		<div class="text-center py-16 text-slate-600">
 			<p class="text-4xl mb-3">📭</p>
 			<p class="font-medium">
-				{data.tab === 'answered' ? $t('dashboard.empty_answered') : data.tab === 'read' ? $t('dashboard.empty_read') : $t('dashboard.empty_unread')}
+				{data.tab === 'answered'
+					? $t('dashboard.empty_answered')
+					: data.tab === 'read'
+						? $t('dashboard.empty_read')
+						: data.tab === 'sent'
+							? $t('dashboard.empty_sent')
+							: $t('dashboard.empty_unread')}
 			</p>
 		</div>
 	{:else}
@@ -189,89 +244,104 @@
 			{#each data.messages as msg (msg.id)}
 				<QACard
 					body={msg.body}
-					sender={msg.sender}
-					senderHref={msg.sender ? `/u/${msg.sender.handle}` : undefined}
+					sender={data.tab === 'sent' ? msg.creator : msg.sender}
+					senderHref={data.tab === 'sent'
+						? msg.creator
+							? `/u/${msg.creator.handle}`
+							: undefined
+						: msg.sender
+							? `/u/${msg.sender.handle}`
+							: undefined}
 					imageUrls={msg.imageUrls}
 					createdAt={msg.createdAt}
-					answer={data.tab === 'answered' ? msg.answer : null}
-					answeredAt={data.tab === 'answered' ? msg.answeredAt : undefined}
+					answer={data.tab === 'unread' || data.tab === 'read' ? null : msg.answer}
+					answeredAt={data.tab === 'unread' || data.tab === 'read' ? undefined : msg.answeredAt}
 					answererLabel={$t('dashboard.your_answer')}
-					unread={!msg.isRead}
+					unread={data.tab === 'sent' ? false : !msg.isRead}
 				>
-					{#snippet topRight()}
-						<button
-							onclick={() => confirmDelete(msg.id)}
-							class="absolute top-3 right-3 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-300 transition-colors rounded text-lg leading-none"
-							aria-label={$t('dashboard.delete')}
-						>
-							×
-						</button>
+					{#snippet questionActions()}
+						{#if data.tab === 'unread' || data.tab === 'read'}
+							{#if !msg.isRead}
+								<button
+									onclick={() => markRead(msg.id)}
+									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+								>
+									{$t('dashboard.mark_read')}
+								</button>
+							{:else}
+								<button
+									onclick={() => markUnread(msg.id)}
+									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+								>
+									{$t('dashboard.mark_unread')}
+								</button>
+							{/if}
+							<button
+								onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
+								class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+							>
+								{$t('dashboard.answer_button')}
+							</button>
+							<button
+								onclick={() => confirmDelete(msg.id, 'message')}
+								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+							>
+								{$t('dashboard.hide_question')}
+							</button>
+						{:else if data.tab === 'sent'}
+							<button
+								onclick={() => confirmDelete(msg.id, 'question')}
+								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+							>
+								{$t('dashboard.delete_question')}
+							</button>
+						{/if}
 					{/snippet}
-					{#snippet actions()}
-						{#if data.tab !== 'answered'}
-							<div class="mt-4 pt-4 border-t border-slate-800">
-								<div class="flex flex-wrap items-center justify-end gap-2">
-									{#if !msg.isRead}
-										<button
-											onclick={() => markRead(msg.id)}
-											class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-										>
-											{$t('dashboard.mark_read')}
-										</button>
-									{:else}
-										<button
-											onclick={() => markUnread(msg.id)}
-											class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-										>
-											{$t('dashboard.mark_unread')}
-										</button>
-									{/if}
-									<button
-										onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
-										class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
-									>
-										{$t('dashboard.answer_button')}
-									</button>
-								</div>
-
-								{#if replyingTo === msg.id}
-									<div class="mt-4">
-										{#if replyError}
-											<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
-										{/if}
-										<textarea
-											bind:value={replyText}
-											placeholder={$t('dashboard.answer_placeholder')}
-											rows="4"
-											class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
-										></textarea>
-										<div class="flex items-center justify-between">
-											<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
-												{replyText.length} / {MAX_CHARS}
-											</p>
-											<div class="flex gap-2">
-												<button
-													onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
-													disabled={isSubmittingReply}
-													class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-												>
-													{$t('dashboard.delete_cancel')}
-												</button>
-												<button
-													onclick={() => submitReply(msg)}
-													disabled={isSubmittingReply || !replyText.trim()}
-													class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
-												>
-													{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
-												</button>
-											</div>
-										</div>
-									</div>
-								{/if}
-							</div>
+					{#snippet answerActions()}
+						{#if data.tab === 'answered'}
+							<button
+								onclick={() => confirmDelete(msg.id, 'answer')}
+								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+							>
+								{$t('dashboard.delete_answer')}
+							</button>
 						{/if}
 					{/snippet}
 				</QACard>
+				{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
+					<div class="mt-2 rounded-xl border border-slate-800 bg-slate-900 p-4">
+						{#if replyError}
+							<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
+						{/if}
+						<textarea
+							bind:value={replyText}
+							placeholder={$t('dashboard.answer_placeholder')}
+							rows="4"
+							class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+						></textarea>
+						<div class="flex items-center justify-between">
+							<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
+								{replyText.length} / {MAX_CHARS}
+							</p>
+							<div class="flex gap-2">
+								<button
+									onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
+									disabled={isSubmittingReply}
+									class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+								>
+									{$t('dashboard.delete_cancel')}
+								</button>
+								<button
+									onclick={() => submitReply(msg)}
+									disabled={isSubmittingReply || !replyText.trim()}
+									class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+								>
+									{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+								</button>
+							</div>
+						</div>
+					</div>
+				{/if}
 			{/each}
 		</div>
 
@@ -295,8 +365,23 @@
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 w-full h-full max-w-none max-h-none p-4 m-0 border-none"
 >
 	<div class="bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-		<h2 class="text-base font-bold text-slate-100 mb-3">{$t('dashboard.delete_title')}</h2>
-		<p class="text-sm text-slate-400 mb-6">{$t('dashboard.delete_confirm')}</p>
+		<h2 class="text-base font-bold text-slate-100 mb-3">
+			{deleteTargetType === 'question'
+				? $t('dashboard.delete_question_title')
+				: deleteTargetType === 'answer'
+					? $t('dashboard.delete_answer_title')
+					: $t('dashboard.hide_question_title')}
+		</h2>
+		<p class="text-sm text-slate-400 mb-4">
+			{deleteTargetType === 'question'
+				? $t('dashboard.delete_question_confirm')
+				: deleteTargetType === 'answer'
+					? $t('dashboard.delete_answer_confirm')
+					: $t('dashboard.hide_question_confirm')}
+		</p>
+		{#if deleteError}
+			<p class="mb-4 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{deleteError}</p>
+		{/if}
 		<div class="flex justify-end gap-2">
 			<button
 				onclick={cancelDelete}
@@ -308,7 +393,11 @@
 				onclick={executeDelete}
 				class="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
 			>
-				{$t('dashboard.delete')}
+				{deleteTargetType === 'question'
+					? $t('dashboard.delete_question')
+					: deleteTargetType === 'answer'
+						? $t('dashboard.delete_answer')
+						: $t('dashboard.hide_question')}
 			</button>
 		</div>
 	</div>

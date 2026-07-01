@@ -18,8 +18,8 @@
 		href = undefined,
 		truncateLength = undefined,
 		unread = false,
-		topRight = undefined,
-		actions = undefined
+		questionActions = undefined,
+		answerActions = undefined
 	}: {
 		body: string;
 		answer?: string | null;
@@ -34,8 +34,8 @@
 		href?: string;
 		truncateLength?: number;
 		unread?: boolean;
-		topRight?: Snippet;
-		actions?: Snippet;
+		questionActions?: Snippet;
+		answerActions?: Snippet;
 	} = $props();
 
 	function truncate(text: string, max: number): string {
@@ -94,10 +94,6 @@
 {/snippet}
 
 {#snippet content()}
-	{#if topRight}
-		{@render topRight()}
-	{/if}
-
 	<div class="flex items-start gap-3">
 		{#if unread}
 			<span class="shrink-0 w-2 h-2 rounded-full bg-primary-500 mt-1.5"></span>
@@ -130,6 +126,12 @@
 		</p>
 	{/if}
 
+	{#if questionActions}
+		<div class="mt-3 flex flex-wrap items-center justify-end gap-2">
+			{@render questionActions()}
+		</div>
+	{/if}
+
 	{#if displayAnswer}
 		<hr class="my-4 border-slate-800" />
 		{#if creator}
@@ -145,10 +147,12 @@
 				{$t('message.answered_at', { values: { date: formatDate(answeredAt) } })}
 			</p>
 		{/if}
-	{/if}
 
-	{#if actions}
-		{@render actions()}
+		{#if answerActions}
+			<div class="mt-3 flex flex-wrap items-center justify-end gap-2">
+				{@render answerActions()}
+			</div>
+		{/if}
 	{/if}
 {/snippet}
 

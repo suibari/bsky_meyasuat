@@ -36,7 +36,7 @@
 						{/if}
 					</a>
 				{:else}
-					<a href="/signin" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors">
+					<a href="/#landing-handle" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors">
 						{$t('nav.signin')}
 					</a>
 				{/if}

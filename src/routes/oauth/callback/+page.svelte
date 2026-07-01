@@ -54,7 +54,7 @@
 		<div class="bg-red-950 border border-red-800 rounded-xl p-6">
 			<p class="text-red-300 text-sm mb-4">{$t('oauth.callback.error')}</p>
 			<p class="text-red-500 text-xs font-mono">{error}</p>
-			<a href="/signin" class="mt-4 inline-block text-sm text-primary-400 underline">
+			<a href="/#landing-handle" class="mt-4 inline-block text-sm text-primary-400 underline">
 				{$t('signin.title')}
 			</a>
 		</div>

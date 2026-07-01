@@ -4,6 +4,7 @@
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
+	import { deleteRecordOnPds } from '$lib/client/oauthClient.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -26,6 +27,7 @@
 	let errorMsg = $state('');
 	let savedAnswer = $state<string | null>(null);
 	let showShareModal = $state(false);
+	let deletingAnswer = $state(false);
 	$effect(() => { savedAnswer = data.message.answer; });
 
 	const MAX_CHARS = 1000;
@@ -43,7 +45,7 @@
 			const client = await createOAuthClient(data.appUrl);
 			const session = await client.restore(data.creator.did);
 			const agent = new Agent(session);
-			await agent.com.atproto.repo.createRecord({
+			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.creator.did,
 				collection: 'com.suibari.meyasuat.answer',
 				record: {
@@ -58,8 +60,39 @@
 					createdAt: new Date().toISOString()
 				}
 			});
+
+			await fetch(`/api/messages/${data.message.id}/answer-ref`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ uri: created.data.uri, cid: created.data.cid })
+			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);
+		}
+	}
+
+	async function deleteAnswer() {
+		if (!data.isOwner) return;
+		deletingAnswer = true;
+		errorMsg = '';
+
+		try {
+			if (data.message.answerRecordUri) {
+				await deleteRecordOnPds(data.appUrl, data.creator.did, data.message.answerRecordUri);
+			}
+
+			const res = await fetch(`/api/messages/${data.message.id}/answer`, { method: 'DELETE' });
+			if (!res.ok) {
+				errorMsg = $t('dashboard.delete_error');
+				return;
+			}
+
+			savedAnswer = null;
+			await invalidateAll();
+		} catch {
+			errorMsg = $t('dashboard.delete_error');
+		} finally {
+			deletingAnswer = false;
 		}
 	}
 
@@ -80,7 +113,7 @@
 			savedAnswer = result.answer;
 			
 			if (data.isOwner) {
-				recordAnswerOnPds(result.answer);
+				await recordAnswerOnPds(result.answer);
 			}
 			
 			await invalidateAll();
@@ -122,12 +155,21 @@
 
 	{#if savedAnswer}
 		{#if data.isOwner}
-			<button
-				onclick={() => showShareModal = true}
-				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 rounded-xl transition-colors mb-4"
-			>
-				{$t('message.share_button')}
-			</button>
+			<div class="flex gap-2 mb-4">
+				<button
+					onclick={() => showShareModal = true}
+					class="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 rounded-xl transition-colors"
+				>
+					{$t('message.share_button')}
+				</button>
+				<button
+					onclick={deleteAnswer}
+					disabled={deletingAnswer}
+					class="shrink-0 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium px-4 py-3 rounded-xl transition-colors text-sm"
+				>
+					{$t('dashboard.delete_answer')}
+				</button>
+			</div>
 		{/if}
 	{:else if data.isOwner}
 		<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm mb-4">

@@ -242,7 +242,7 @@
 						{$t('submit.named_signin_description', { values: { name: creatorName } })}
 					</p>
 					<a
-						href={`/signin?redirect_to=${encodeURIComponent(page.url.pathname)}`}
+						href={`/?redirect_to=${encodeURIComponent(page.url.pathname)}#landing-handle`}
 						class="inline-block text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
 					>
 						{$t('nav.signin')}
