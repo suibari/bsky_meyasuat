@@ -5,39 +5,6 @@
 	let { ogImageUrl, shareUrl, onClose }: { ogImageUrl: string; shareUrl: string; onClose: () => void } = $props();
 
 	let linkCopied = $state(false);
-	let warmingOg = $state(false);
-	let ogWarmed = $state(false);
-
-	function wait(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
-	async function warmOg(): Promise<void> {
-		if (ogWarmed || warmingOg) return;
-		warmingOg = true;
-		try {
-			await Promise.race([
-				fetch(ogImageUrl, { cache: 'reload' }),
-				wait(1800)
-			]);
-		} catch {
-			// warming 失敗時もシェア自体は続行する
-		} finally {
-			ogWarmed = true;
-			warmingOg = false;
-		}
-	}
-
-	$effect(() => {
-		void warmOg();
-	});
-
-	async function openShareIntent(intentUrl: string): Promise<void> {
-		const shareWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
-		if (!shareWindow) return;
-		await warmOg();
-		shareWindow.location.href = intentUrl;
-	}
 
 	async function copyShareLink() {
 		await navigator.clipboard.writeText(shareUrl);
@@ -64,10 +31,6 @@
 		<div class="flex flex-col gap-3 mb-2">
 			<a
 				href={blueskyShareUrl(shareUrl)}
-				onclick={async (e) => {
-					e.preventDefault();
-					await openShareIntent(blueskyShareUrl(shareUrl));
-				}}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
@@ -76,10 +39,6 @@
 			</a>
 			<a
 				href={xShareUrl(shareUrl)}
-				onclick={async (e) => {
-					e.preventDefault();
-					await openShareIntent(xShareUrl(shareUrl));
-				}}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="flex items-center justify-center gap-2 w-full bg-black hover:bg-gray-800 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
