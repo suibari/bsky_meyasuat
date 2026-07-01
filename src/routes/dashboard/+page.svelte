@@ -312,6 +312,41 @@
 							</button>
 						{/if}
 					{/snippet}
+					{#snippet expandedPane()}
+						{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
+							{#if replyError}
+								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
+							{/if}
+							<p class="mb-2 text-xs font-medium text-slate-400">{$t('message.answer_label')}</p>
+							<textarea
+								bind:value={replyText}
+								placeholder={$t('dashboard.answer_placeholder')}
+								rows="4"
+								class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+							></textarea>
+							<div class="flex items-center justify-between">
+								<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
+									{replyText.length} / {MAX_CHARS}
+								</p>
+								<div class="flex gap-2">
+									<button
+										onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
+										disabled={isSubmittingReply}
+										class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+									>
+										{$t('dashboard.delete_cancel')}
+									</button>
+									<button
+										onclick={() => submitReply(msg)}
+										disabled={isSubmittingReply || !replyText.trim()}
+										class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+									>
+										{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+									</button>
+								</div>
+							</div>
+						{/if}
+					{/snippet}
 					{#snippet answerActions()}
 						{#if data.tab === 'answered'}
 							<button
@@ -323,40 +358,6 @@
 						{/if}
 					{/snippet}
 				</QACard>
-				{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
-					<div class="mt-2 rounded-xl border border-slate-800 bg-slate-900 p-4">
-						{#if replyError}
-							<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
-						{/if}
-						<textarea
-							bind:value={replyText}
-							placeholder={$t('dashboard.answer_placeholder')}
-							rows="4"
-							class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
-						></textarea>
-						<div class="flex items-center justify-between">
-							<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
-								{replyText.length} / {MAX_CHARS}
-							</p>
-							<div class="flex gap-2">
-								<button
-									onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
-									disabled={isSubmittingReply}
-									class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-								>
-									{$t('dashboard.delete_cancel')}
-								</button>
-								<button
-									onclick={() => submitReply(msg)}
-									disabled={isSubmittingReply || !replyText.trim()}
-									class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
-								>
-									{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
-								</button>
-							</div>
-						</div>
-					</div>
-				{/if}
 			{/each}
 		</div>
 

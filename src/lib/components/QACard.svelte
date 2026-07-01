@@ -19,7 +19,8 @@
 		truncateLength = undefined,
 		unread = false,
 		questionActions = undefined,
-		answerActions = undefined
+		answerActions = undefined,
+		expandedPane = undefined
 	}: {
 		body: string;
 		answer?: string | null;
@@ -36,6 +37,7 @@
 		unread?: boolean;
 		questionActions?: Snippet;
 		answerActions?: Snippet;
+		expandedPane?: Snippet;
 	} = $props();
 
 	function truncate(text: string, max: number): string {
@@ -146,6 +148,13 @@
 	{#if questionActions}
 		<div class="mt-3 flex flex-wrap items-center justify-end gap-2">
 			{@render questionActions()}
+		</div>
+	{/if}
+
+	{#if expandedPane}
+		<hr class="my-4 border-slate-800" />
+		<div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+			{@render expandedPane()}
 		</div>
 	{/if}
 
