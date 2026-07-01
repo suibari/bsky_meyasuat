@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getMessages, getAnsweredMessages, getSentMessages, countUnread, getUserByDid } from '$lib/server/db.js';
 import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds } from '$lib/server/pdsSync.js';
-import { r2KeyToUrl } from '$lib/server/r2.js';
+import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const env = platform?.env;
@@ -53,6 +53,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		}
 	}
 
+	const imageUrlCache = new Map<string, string[]>();
 	const enriched = await Promise.all(messages.map(async (m) => {
 		let sender = null;
 		if (env && m.senderDid) {
@@ -82,7 +83,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 
 		return {
 			...m,
-			imageUrls: env ? m.imageKeys.map((k) => r2KeyToUrl(env, k)) : [],
+			imageUrls: env ? await resolveMessageImageUrls(env, m, imageUrlCache) : [],
 			sender,
 			creator
 		};

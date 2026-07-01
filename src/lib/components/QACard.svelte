@@ -56,6 +56,18 @@
 	const displayAnswer = $derived(
 		answer && truncateLength ? truncate(answer, truncateLength) : answer
 	);
+	let failedImageUrls = $state<string[]>([]);
+	const hasExpiredImages = $derived(failedImageUrls.length > 0);
+
+	function markImageFailed(url: string): void {
+		if (failedImageUrls.includes(url)) return;
+		failedImageUrls = [...failedImageUrls, url];
+	}
+
+	function isImageFailed(url: string): boolean {
+		return failedImageUrls.includes(url);
+	}
+
 	const thumbClass = $derived(
 		truncateLength
 			? 'rounded-lg max-h-20 max-w-full object-cover border border-slate-700'
@@ -109,15 +121,20 @@
 	{#if imageUrls.length > 0}
 		<div class="mt-4 flex flex-wrap gap-2">
 			{#each imageUrls as url}
-				{#if href}
-					<img src={url} alt="" class={thumbClass} />
-				{:else}
-					<a href={url} target="_blank" rel="noopener noreferrer">
-						<img src={url} alt="" class={thumbClass} />
-					</a>
+				{#if !isImageFailed(url)}
+					{#if href}
+						<img src={url} alt="" class={thumbClass} onerror={() => markImageFailed(url)} />
+					{:else}
+						<a href={url} target="_blank" rel="noopener noreferrer">
+							<img src={url} alt="" class={thumbClass} onerror={() => markImageFailed(url)} />
+						</a>
+					{/if}
 				{/if}
 			{/each}
 		</div>
+		{#if hasExpiredImages}
+			<p class="mt-2 text-xs text-slate-500">{$t('message.images_expired')}</p>
+		{/if}
 	{/if}
 
 	{#if createdAt}

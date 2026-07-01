@@ -29,6 +29,7 @@
 	"submit.error.too_long": "Message must be 1000 characters or less",
 	"submit.error.too_many_images": "You can attach up to 4 images",
 	"submit.error.image_too_large": "Each image must be 1MB or less",
+	"submit.error.storage_limit": "Image storage is currently at capacity. Please try again later.",
 	"submit.error.turnstile": "Verification failed. Please try again.",
 	"submit.error.rate_limit": "Too many messages. Please wait before sending again.",
 	"submit.error.server": "A server error occurred",
@@ -106,6 +107,7 @@
 	"message.answer_error.too_long": "Answer must be 1000 characters or less",
 	"message.answer_error.server": "A server error occurred",
 	"message.answered_at": "Answered on {date}",
+	"message.images_expired": "Images were deleted after the retention period (90 days).",
 	"message.no_answer_yet": "Not answered yet",
 	"message.share_button": "Share",
 	"box.answered_qa_title": "Answered questions",
@@ -144,6 +146,7 @@
 	"about.notice2": "Message box data is stored in the app database.",
 	"about.notice3": "Because this is an individual project, support may be limited and the service may end without advance notice.",
 	"about.notice4": "The text on this page may change without advance notice.",
+	"about.notice5": "Attachments on anonymous questions may be deleted around 90 days after they are saved.",
 	"about.github": "GitHub: suibari/bsky_meyasuat",
 	"about.close": "Close"
 }

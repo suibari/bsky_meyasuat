@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import { getUserByHandle, getAnsweredMessages } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
 import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds } from '$lib/server/pdsSync.js';
-import { r2KeyToUrl } from '$lib/server/r2.js';
+import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	const ctx = platform?.context;
@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const appUrl = env?.PUBLIC_APP_URL ?? '';
 	const turnstileSiteKey = env?.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
+    const imageUrlCache = new Map<string, string[]>();
 
 	const answeredMessages = env
 		? await getAnsweredMessages(env, user.did, { limit: 10, offset: page * 10 })
@@ -44,14 +45,14 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 	}
 
 	const answeredQA = env
-		? answeredMessages.map((m) => ({
+		? await Promise.all(answeredMessages.map(async (m) => ({
 				id: m.id,
 				body: m.body,
 				answer: m.answer ?? '',
 				createdAt: m.createdAt,
 				answeredAt: m.answeredAt ?? '',
-				imageUrls: m.imageKeys.map((k) => r2KeyToUrl(env, k))
-			}))
+				imageUrls: await resolveMessageImageUrls(env, m, imageUrlCache)
+			})))
 		: [];
 
 	return {

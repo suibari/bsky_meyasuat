@@ -254,6 +254,7 @@
 				<li>{$t('about.notice2')}</li>
 				<li>{$t('about.notice3')}</li>
 				<li>{$t('about.notice4')}</li>
+				<li>{$t('about.notice5')}</li>
 				<li>
 					<a
 						href="https://github.com/suibari/bsky_meyasuat"

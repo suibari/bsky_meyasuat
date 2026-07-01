@@ -29,6 +29,7 @@
 	"submit.error.too_long": "1000文字以内で入力してください",
 	"submit.error.too_many_images": "画像は最大4枚です",
 	"submit.error.image_too_large": "画像は1枚1MB以下にしてください",
+	"submit.error.storage_limit": "現在画像の保存容量が上限に達しているため送信できません。時間をおいて再度お試しください。",
 	"submit.error.turnstile": "認証に失敗しました。もう一度お試しください",
 	"submit.error.rate_limit": "しばらく時間をおいてから再度送信してください",
 	"submit.error.server": "サーバーエラーが発生しました",
@@ -106,6 +107,7 @@
 	"message.answer_error.too_long": "1000文字以内で入力してください",
 	"message.answer_error.server": "サーバーエラーが発生しました",
 	"message.answered_at": "{date} に回答",
+	"message.images_expired": "画像は保持期間（90日）経過により削除されました。",
 	"message.no_answer_yet": "まだ回答されていません",
 	"message.share_button": "シェアする",
 	"box.answered_qa_title": "回答済みの質問",
@@ -144,6 +146,7 @@
 	"about.notice2": "本アプリは目安箱データをアプリ側データベースに保存します。",
 	"about.notice3": "個人開発のため手厚いサポートはできず、突如サービスを終了する場合があります。",
 	"about.notice4": "このページに記載される文章は予告なく変更する場合があります。",
+	"about.notice5": "匿名質問時の添付画像は、保存から90日を目安に削除される場合があります。",
 	"about.github": "GitHub: suibari/bsky_meyasuat",
 	"about.close": "閉じる"
 }

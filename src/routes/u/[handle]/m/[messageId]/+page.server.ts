@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
 import { reconcileMessageWithPds } from '$lib/server/pdsSync.js';
-import { r2KeyToUrl } from '$lib/server/r2.js';
+import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	const env = platform?.env;
@@ -47,11 +47,12 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		limit: 10,
 		excludeId: message.id
 	});
+	const imageUrlCache = new Map<string, string[]>();
 
 	return {
 		message: {
 			...message,
-			imageUrls: message.imageKeys.map((k) => r2KeyToUrl(env, k)),
+			imageUrls: await resolveMessageImageUrls(env, message, imageUrlCache),
 			sender: senderProfile
 		},
 		creator: {
@@ -63,13 +64,13 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		},
 		appUrl,
 		isOwner,
-		relatedQA: relatedQA.map((m) => ({
+		relatedQA: await Promise.all(relatedQA.map(async (m) => ({
 			id: m.id,
 			body: m.body,
 			answer: m.answer ?? '',
 			createdAt: m.createdAt,
 			answeredAt: m.answeredAt ?? '',
-			imageUrls: m.imageKeys.map((k) => r2KeyToUrl(env, k))
-		}))
+			imageUrls: await resolveMessageImageUrls(env, m, imageUrlCache)
+		})))
 	};
 };

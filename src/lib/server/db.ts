@@ -210,7 +210,7 @@ export async function getMessages(
 	opts: { limit?: number; offset?: number; unreadOnly?: boolean; readOnly?: boolean } = {}
 ): Promise<Message[]> {
 	const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&sender_deleted_at=is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	if (unreadOnly) url += '&is_read=eq.false&answer=is.null';
 	if (readOnly) url += '&is_read=eq.true&answer=is.null';
 	const res = await fetch(url, { headers: headers(env) });
@@ -341,7 +341,7 @@ export async function getAnsweredMessages(
 	opts: { limit?: number; offset?: number; excludeId?: string } = {}
 ): Promise<Message[]> {
 	const { limit = 10, offset = 0, excludeId } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&sender_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
 	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
@@ -488,7 +488,7 @@ export async function markAnswerMissingFromPds(env: Env, id: string): Promise<vo
 
 export async function countUnread(env: Env, creatorDid: string): Promise<number> {
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&is_read=eq.false&select=id`,
+		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&is_read=eq.false&sender_deleted_at=is.null&select=id`,
 		{
 			headers: { ...headers(env), Prefer: 'count=exact' }
 		}

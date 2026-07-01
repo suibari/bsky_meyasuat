@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { getUserByDid, createMessage, checkRateLimit, logRateLimit } from '$lib/server/db.js';
-import { uploadToR2, messageImageKey } from '$lib/server/r2.js';
+import { uploadToR2, messageImageKey, getTotalR2Bytes } from '$lib/server/r2.js';
 import { verifyTurnstile } from '$lib/server/turnstile.js';
 import { notifyCreator } from '$lib/server/bot.js';
 
@@ -9,6 +9,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1時間
 const RATE_LIMIT_MAX = 5;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
+const MAX_TOTAL_R2_BYTES = 8 * 1024 * 1024 * 1024; // 8GB
 
 async function hashIp(ip: string, secret: string): Promise<string> {
 	const data = new TextEncoder().encode(ip + secret);
@@ -27,6 +28,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const senderDid = (fd.get('sender_did') as string | null) ?? null;
 	const turnstileToken = (fd.get('turnstile_token') as string | null) ?? '';
 	const imageFiles = fd.getAll('images') as File[];
+	const prefersPdsImages = !!senderDid;
 
 	// バリデーション
 	if (!body) error(400, 'Message body is required');
@@ -49,18 +51,35 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const creator = await getUserByDid(env, creatorDid);
 	if (!creator) error(404, 'Creator not found');
 
-	// 画像をアップロード
-	const imageKeys: string[] = [];
-	const messageId = crypto.randomUUID();
-	for (let i = 0; i < imageFiles.length; i++) {
-		const file = imageFiles[i];
+	const preparedImages: Array<{ buf: ArrayBuffer; contentType: string; ext: string }> = [];
+	let incomingTotalBytes = 0;
+
+	for (const file of imageFiles) {
 		if (!ALLOWED_MIME.has(file.type)) error(400, `Invalid image type: ${file.type}`);
 		const buf = await file.arrayBuffer();
 		if (buf.byteLength > MAX_IMAGE_SIZE) error(400, 'Image too large');
 		const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-		const key = messageImageKey(messageId, i, ext);
-		await uploadToR2(env, key, buf, file.type);
-		imageKeys.push(key);
+		preparedImages.push({ buf, contentType: file.type, ext });
+		incomingTotalBytes += buf.byteLength;
+	}
+
+	if (!prefersPdsImages && incomingTotalBytes > 0) {
+		const currentTotalBytes = await getTotalR2Bytes(env);
+		if (currentTotalBytes + incomingTotalBytes > MAX_TOTAL_R2_BYTES) {
+			error(507, 'Storage limit exceeded');
+		}
+	}
+
+	// 画像をアップロード
+	const imageKeys: string[] = [];
+	const messageId = crypto.randomUUID();
+	if (!prefersPdsImages) {
+		for (let i = 0; i < preparedImages.length; i++) {
+			const image = preparedImages[i];
+			const key = messageImageKey(messageId, i, image.ext);
+			await uploadToR2(env, key, image.buf, image.contentType);
+			imageKeys.push(key);
+		}
 	}
 
 	// メッセージ保存 (id を指定して INSERT)
