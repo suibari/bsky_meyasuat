@@ -312,8 +312,8 @@
 							</button>
 						{/if}
 					{/snippet}
-					{#snippet expandedPane()}
-						{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
+					{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
+						{#snippet expandedPane()}
 							{#if replyError}
 								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
 							{/if}
@@ -345,8 +345,8 @@
 									</button>
 								</div>
 							</div>
-						{/if}
-					{/snippet}
+						{/snippet}
+					{/if}
 					{#snippet answerActions()}
 						{#if data.tab === 'answered'}
 							<button
