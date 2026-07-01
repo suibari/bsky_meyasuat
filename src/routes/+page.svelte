@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
 	import { PUBLIC_APP_URL } from '$env/static/public';
 	import type { PageData } from './$types';
 
@@ -41,6 +40,7 @@
 		loading = true;
 		error = '';
 		try {
+			const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
 			const local = isLocalhost(data.appUrl) || isLocalhost(location.origin);
 			const clientId = local
 				? (() => {

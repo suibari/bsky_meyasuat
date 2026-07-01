@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -16,6 +15,7 @@
 
 	onMount(async () => {
 		try {
+			const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
 			const local = isLocalhost(data.appUrl) || isLocalhost(location.origin);
 			const port = location.port;
 			const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;

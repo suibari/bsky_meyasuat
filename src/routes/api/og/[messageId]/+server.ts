@@ -29,6 +29,12 @@ function buildAvatarNode(dataUri: string | null, label: string, size: number) {
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	if (!env) error(503, 'Service unavailable');
+	const edgeCache = platform.caches.default;
+	const cacheKey = url.toString();
+	const cached = await edgeCache.match(cacheKey as any);
+	if (cached) {
+		return cached as unknown as Response;
+	}
 
 	const [message, appUrl] = [
 		await getMessageById(env, params.messageId),
@@ -54,8 +60,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const creatorName = creator?.displayName?.trim() || creator?.handle || 'unknown';
 	const boxName = creator?.boxName?.trim() || 'めやすばこ';
 
-	const senderAvatarDataUri = sender?.avatarUrl ? await fetchImageAsDataUri(sender.avatarUrl) : null;
-	const creatorAvatarDataUri = creator?.avatarUrl ? await fetchImageAsDataUri(creator.avatarUrl) : null;
+	const [senderAvatarDataUri, creatorAvatarDataUri] = await Promise.all([
+		sender?.avatarUrl ? fetchImageAsDataUri(sender.avatarUrl) : Promise.resolve<string | null>(null),
+		creator?.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null)
+	]);
 
 	const headerNode = sender
 		? {
@@ -190,10 +198,13 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const rendered = resvg.render();
 	const png = rendered.asPng();
 
-	return new Response(png.buffer as ArrayBuffer, {
+	const response = new Response(png.buffer as ArrayBuffer, {
 		headers: {
 			'Content-Type': 'image/png',
-			'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
+			'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable'
 		}
 	});
+
+	platform.context.waitUntil(edgeCache.put(cacheKey as any, response.clone() as any));
+	return response;
 };

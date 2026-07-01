@@ -35,11 +35,13 @@ export async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; ki
 	return fontCache;
 }
 
-export async function fetchImageAsDataUri(url: string): Promise<string | null> {
+export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promise<string | null> {
+	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+	const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 	try {
 		// satori は WebP をデコードできないため、Bluesky CDN の画像は @jpeg を付けて取得する
 		const fetchUrl = url.includes('cdn.bsky.app') ? `${url}@jpeg` : url;
-		const res = await fetch(fetchUrl);
+		const res = await fetch(fetchUrl, controller ? { signal: controller.signal } : undefined);
 		if (!res.ok) return null;
 		const contentType = res.headers.get('content-type') || 'image/jpeg';
 		const bytes = new Uint8Array(await res.arrayBuffer());
@@ -48,6 +50,8 @@ export async function fetchImageAsDataUri(url: string): Promise<string | null> {
 		return `data:${contentType};base64,${btoa(binary)}`;
 	} catch {
 		return null;
+	} finally {
+		if (timeoutId !== null) clearTimeout(timeoutId);
 	}
 }
 

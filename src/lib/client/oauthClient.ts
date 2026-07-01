@@ -1,4 +1,4 @@
-import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
+import type { BrowserOAuthClient } from '@atproto/oauth-client-browser';
 import { Agent } from '@atproto/api';
 
 function isLocalhost(url: string): boolean {
@@ -6,6 +6,7 @@ function isLocalhost(url: string): boolean {
 }
 
 export async function createOAuthClient(appUrl: string): Promise<BrowserOAuthClient> {
+	const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
 	const local = isLocalhost(appUrl) || isLocalhost(location.origin);
 	const clientId = local
 		? (() => {
