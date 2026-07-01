@@ -102,7 +102,7 @@
 	"landing.feature2": "Anonymous or named questions",
 	"landing.feature3": "Long messages welcome",
 	"landing.feature4": "Image attachments supported",
-	"landing.feature5": "Instant Bluesky notifications",
+	"landing.feature5": "Get notified on Bluesky when answers arrive",
 	"landing.feature6": "Your data stays yours",
 	"landing.feature_note": "* Signed-in users store question and answer data in their PDS.",
 	"landing.cta": "Sign in",
