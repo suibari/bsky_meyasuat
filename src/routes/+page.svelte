@@ -92,10 +92,10 @@
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}
 	</p>
-	<div class="mx-auto mb-3 grid max-w-3xl grid-cols-2 gap-2 text-left text-xs text-slate-200 md:grid-cols-3">
+	<div class="mx-auto mb-4 grid max-w-3xl grid-cols-2 gap-3 text-left text-sm text-slate-100 md:gap-4 md:text-base">
 		{#each features as feature}
-			<span class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 shadow-sm">
-				<span class={`grid size-7 shrink-0 place-items-center rounded-md ${feature.iconClass}`}>
+			<span class="flex min-h-15 items-center gap-3 rounded-xl border border-slate-600/80 bg-slate-900/85 px-4 py-3 shadow-sm md:min-h-16 md:gap-3.5">
+				<span class={`grid size-8 shrink-0 place-items-center rounded-md ${feature.iconClass}`}>
 					{#if feature.icon === 'inbox'}
 						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
 							<path d="M22 12h-6l-2 3h-4l-2-3H2" />
@@ -131,7 +131,7 @@
 						</svg>
 					{/if}
 				</span>
-				<span class="leading-snug">{$t(feature.key)}</span>
+				<span class="leading-snug font-medium">{$t(feature.key)}</span>
 			</span>
 		{/each}
 	</div>
