@@ -488,7 +488,7 @@ export async function markAnswerMissingFromPds(env: Env, id: string): Promise<vo
 
 export async function countUnread(env: Env, creatorDid: string): Promise<number> {
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&is_read=eq.false&sender_deleted_at=is.null&select=id`,
+		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&is_read=eq.false&answer=is.null&sender_deleted_at=is.null&select=id`,
 		{
 			headers: { ...headers(env), Prefer: 'count=exact' }
 		}
