@@ -229,6 +229,60 @@ export async function getMessageById(env: Env, id: string): Promise<Message | nu
 	return rows[0] ? toMessage(rows[0]) : null;
 }
 
+export async function getMessageByQuestionRecordUri(env: Env, uri: string): Promise<Message | null> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?question_record_uri=eq.${encodeURIComponent(uri)}&limit=1`,
+		{ headers: headers(env) }
+	);
+	if (!res.ok) return null;
+	const rows = await res.json() as Record<string, unknown>[];
+	return rows[0] ? toMessage(rows[0]) : null;
+}
+
+export async function createMessageFromPds(
+	env: Env,
+	data: {
+		id?: string;
+		creatorDid: string;
+		body: string;
+		senderDid: string | null;
+		questionRecordUri?: string | null;
+		questionRecordCid?: string | null;
+		answer?: string | null;
+		answeredAt?: string | null;
+		answerRecordUri?: string | null;
+		answerRecordCid?: string | null;
+	}
+): Promise<Message | null> {
+	const payload: Record<string, unknown> = {
+		creator_did: data.creatorDid,
+		body: data.body,
+		image_keys: [],
+		ip_hash: 'pds-sync',
+		sender_did: data.senderDid,
+		question_record_uri: data.questionRecordUri ?? null,
+		question_record_cid: data.questionRecordCid ?? null,
+		answer: data.answer ?? null,
+		answered_at: data.answeredAt ?? null,
+		answer_record_uri: data.answerRecordUri ?? null,
+		answer_record_cid: data.answerRecordCid ?? null,
+		is_read: false
+	};
+	if (data.id) payload.id = data.id;
+
+	const res = await fetch(`${env.POSTGREST_URL}/messages`, {
+		method: 'POST',
+		headers: {
+			...headers(env),
+			Prefer: 'return=representation,resolution=ignore-duplicates'
+		},
+		body: JSON.stringify(payload)
+	});
+	if (!res.ok) return null;
+	const rows = await res.json() as Record<string, unknown>[];
+	return rows[0] ? toMessage(rows[0]) : null;
+}
+
 export async function markMessageRead(env: Env, id: string, creatorDid: string): Promise<void> {
 	await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
@@ -371,6 +425,65 @@ export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: s
 	if (!res.ok) return false;
 	const rows = await res.json() as unknown[];
 	return rows.length > 0;
+}
+
+export async function reconcileQuestionFromPds(
+	env: Env,
+	id: string,
+	data: { body: string; cid?: string | null }
+): Promise<void> {
+	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
+		method: 'PATCH',
+		headers: headers(env),
+		body: JSON.stringify({
+			body: data.body,
+			question_record_cid: data.cid ?? null,
+			sender_deleted_at: null
+		})
+	});
+}
+
+export async function markQuestionMissingFromPds(env: Env, id: string): Promise<void> {
+	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
+		method: 'PATCH',
+		headers: headers(env),
+		body: JSON.stringify({
+			question_record_uri: null,
+			question_record_cid: null,
+			sender_deleted_at: new Date().toISOString()
+		})
+	});
+}
+
+export async function reconcileAnswerFromPds(
+	env: Env,
+	id: string,
+	data: { answer: string; answeredAt?: string | null; cid?: string | null }
+): Promise<void> {
+	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
+		method: 'PATCH',
+		headers: headers(env),
+		body: JSON.stringify({
+			answer: data.answer,
+			answered_at: data.answeredAt ?? new Date().toISOString(),
+			answer_record_cid: data.cid ?? null,
+			answer_deleted_at: null
+		})
+	});
+}
+
+export async function markAnswerMissingFromPds(env: Env, id: string): Promise<void> {
+	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
+		method: 'PATCH',
+		headers: headers(env),
+		body: JSON.stringify({
+			answer: null,
+			answered_at: null,
+			answer_record_uri: null,
+			answer_record_cid: null,
+			answer_deleted_at: new Date().toISOString()
+		})
+	});
 }
 
 export async function countUnread(env: Env, creatorDid: string): Promise<number> {

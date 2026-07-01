@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { getMessageById, answerMessage, deleteAnswerForCreator } from '$lib/server/db.js';
+import { getRecordByAtUri } from '$lib/server/atproto.js';
 
 export const POST: RequestHandler = async ({ params, locals, platform, request }) => {
 	const env = platform?.env;
@@ -29,6 +30,18 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	if (!message) error(404, 'Message not found');
 	if (message.creatorDid !== locals.user.did) error(403, 'Forbidden');
 	if (!message.answer) error(400, 'Answer is already empty');
+
+	if (message.answerRecordUri) {
+		let lookup;
+		try {
+			lookup = await getRecordByAtUri(message.answerRecordUri);
+		} catch {
+			error(502, 'Failed to verify PDS answer record');
+		}
+		if (lookup.found) {
+			error(409, 'Answer record still exists on PDS');
+		}
+	}
 
 	const ok = await deleteAnswerForCreator(env, params.id, locals.user.did);
 	if (!ok) error(500, 'Failed to delete answer');

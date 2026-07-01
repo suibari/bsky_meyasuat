@@ -67,3 +67,83 @@ export async function syncUserHandle(
 		await updateUser(env, did, { handle });
 	}
 }
+
+type ParsedAtUri = {
+	repo: string;
+	collection: string;
+	rkey: string;
+};
+
+export function parseAtUri(uri: string): ParsedAtUri | null {
+	if (!uri.startsWith('at://')) return null;
+	const parts = uri.slice('at://'.length).split('/');
+	if (parts.length < 3) return null;
+	const [repo, collection, rkey] = parts;
+	if (!repo || !collection || !rkey) return null;
+	return { repo, collection, rkey };
+}
+
+export type PdsRecordLookupResult = {
+	found: boolean;
+	notFound: boolean;
+	cid?: string;
+	value?: Record<string, unknown>;
+};
+
+export type PdsListedRecord = {
+	uri: string;
+	cid: string;
+	value: Record<string, unknown>;
+};
+
+export async function getRecordByAtUri(uri: string): Promise<PdsRecordLookupResult> {
+	const parsed = parseAtUri(uri);
+	if (!parsed) {
+		return { found: false, notFound: true };
+	}
+
+	const query = new URLSearchParams({
+		repo: parsed.repo,
+		collection: parsed.collection,
+		rkey: parsed.rkey
+	});
+
+	const res = await fetch(`https://bsky.social/xrpc/com.atproto.repo.getRecord?${query.toString()}`);
+
+	if (res.ok) {
+		const data = await res.json() as { cid?: string; value?: Record<string, unknown> };
+		return {
+			found: true,
+			notFound: false,
+			cid: data.cid,
+			value: data.value
+		};
+	}
+
+	if (res.status === 404 || res.status === 400) {
+		const body = await res.json().catch(() => null) as { error?: string } | null;
+		if (!body || body.error === 'RecordNotFound' || body.error === 'RepoNotFound') {
+			return { found: false, notFound: true };
+		}
+	}
+
+	throw new Error(`getRecordByAtUri failed: ${res.status}`);
+}
+
+export async function listRecordsByRepo(
+	repoDid: string,
+	collection: string,
+	limit = 50
+): Promise<PdsListedRecord[]> {
+	const query = new URLSearchParams({
+		repo: repoDid,
+		collection,
+		limit: String(limit)
+	});
+	const res = await fetch(`https://bsky.social/xrpc/com.atproto.repo.listRecords?${query.toString()}`);
+	if (!res.ok) {
+		throw new Error(`listRecordsByRepo failed: ${res.status}`);
+	}
+	const data = await res.json() as { records?: Array<{ uri: string; cid: string; value: Record<string, unknown> }> };
+	return (data.records ?? []).filter((r) => !!r.uri && !!r.cid && !!r.value);
+}

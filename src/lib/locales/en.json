@@ -64,6 +64,8 @@
 	"dashboard.delete_answer_title": "Delete answer",
 	"dashboard.delete_answer_confirm": "Delete this answer? This cannot be undone.",
 	"dashboard.delete_error": "Failed to delete. Please try again.",
+	"dashboard.delete_error.pds_conflict": "The record still exists on PDS. Please wait a moment and try again.",
+	"dashboard.delete_error.pds_verify_failed": "Failed to verify PDS status. Please try again in a moment.",
 	"dashboard.delete_cancel": "Cancel",
 	"dashboard.your_url": "Your {box} URL",
 	"dashboard.copy": "Copy",

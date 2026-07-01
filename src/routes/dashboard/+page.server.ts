@@ -1,9 +1,11 @@
 import type { PageServerLoad } from './$types';
 import { getMessages, getAnsweredMessages, getSentMessages, countUnread, getUserByDid } from '$lib/server/db.js';
+import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds } from '$lib/server/pdsSync.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const env = platform?.env;
+	const ctx = platform?.context;
 	const user = locals.user;
 	// Cookie 未送信などで user が無い場合は 500 にせず空で返す（layout が / へリダイレクト）
 	if (!user) {
@@ -20,21 +22,36 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 				: 'unread';
 	const limit = 20;
 
-	const [messages, unreadCount] = await Promise.all([
+	const loadMessages = async () => Promise.all([
 		env
 			? tab === 'answered'
 				? getAnsweredMessages(env, user.did, { limit, offset: page * limit })
 				: tab === 'sent'
 					? getSentMessages(env, user.did, { limit, offset: page * limit })
-				: getMessages(env, user.did, {
-						limit,
-						offset: page * limit,
-						unreadOnly: tab === 'unread',
-						readOnly: tab === 'read'
-					})
+					: getMessages(env, user.did, {
+							limit,
+							offset: page * limit,
+							unreadOnly: tab === 'unread',
+							readOnly: tab === 'read'
+						})
 			: [],
 		env ? countUnread(env, user.did) : 0
-	]);
+	] as const);
+
+	const [messages, unreadCount] = await loadMessages();
+	if (env) {
+		const syncTask = (async () => {
+			await ingestCreatesFromPdsForUser(env, user.did, env.PUBLIC_APP_URL ?? '');
+			if (messages.length > 0) {
+				await reconcileMessagesWithPds(env, messages);
+			}
+		})();
+		if (ctx) {
+			ctx.waitUntil(syncTask);
+		} else {
+			void syncTask.catch(() => {});
+		}
+	}
 
 	const enriched = await Promise.all(messages.map(async (m) => {
 		let sender = null;

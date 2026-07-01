@@ -134,6 +134,12 @@
 		deleteError = null;
 	}
 
+	function mapDeleteErrorByStatus(status: number): string {
+		if (status === 409) return $t('dashboard.delete_error.pds_conflict');
+		if (status === 502) return $t('dashboard.delete_error.pds_verify_failed');
+		return $t('dashboard.delete_error');
+	}
+
 	async function executeDelete() {
 		if (!deleteTargetId) return;
 		deleteError = null;
@@ -147,14 +153,23 @@
 			if (deleteTargetType === 'question') {
 				await deleteQuestionOnPds(target);
 				const res = await fetch(`/api/messages/${deleteTargetId}/question`, { method: 'DELETE' });
-				if (!res.ok) throw new Error('question-delete-failed');
+				if (!res.ok) {
+					deleteError = mapDeleteErrorByStatus(res.status);
+					return;
+				}
 			} else if (deleteTargetType === 'answer') {
 				await deleteAnswerOnPds(target);
 				const res = await fetch(`/api/messages/${deleteTargetId}/answer`, { method: 'DELETE' });
-				if (!res.ok) throw new Error('answer-delete-failed');
+				if (!res.ok) {
+					deleteError = mapDeleteErrorByStatus(res.status);
+					return;
+				}
 			} else {
 				const res = await fetch(`/api/messages/${deleteTargetId}`, { method: 'DELETE' });
-				if (!res.ok) throw new Error('message-delete-failed');
+				if (!res.ok) {
+					deleteError = mapDeleteErrorByStatus(res.status);
+					return;
+				}
 			}
 		} catch (e) {
 			deleteError = $t('dashboard.delete_error');

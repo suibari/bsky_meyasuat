@@ -1,14 +1,23 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
+import { reconcileMessageWithPds } from '$lib/server/pdsSync.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	const env = platform?.env;
+	const ctx = platform?.context;
 	if (!env) error(503, 'Service unavailable');
 
-	const message = await getMessageById(env, params.messageId);
+	let message = await getMessageById(env, params.messageId);
 	if (!message) error(404, 'Message not found');
+
+	const syncTask = reconcileMessageWithPds(env, message);
+	if (ctx) {
+		ctx.waitUntil(syncTask);
+	} else {
+		void syncTask.catch(() => {});
+	}
 
 	const creator = await getUserByDid(env, message.creatorDid);
 	if (!creator) error(404, 'Creator not found');

@@ -64,6 +64,8 @@
 	"dashboard.delete_answer_title": "回答を削除",
 	"dashboard.delete_answer_confirm": "この回答を削除しますか？削除後は元に戻せません。",
 	"dashboard.delete_error": "削除に失敗しました。時間をおいてもう一度お試しください。",
+	"dashboard.delete_error.pds_conflict": "PDS上のレコードがまだ残っています。少し待ってからもう一度お試しください。",
+	"dashboard.delete_error.pds_verify_failed": "PDSの確認に失敗しました。時間をおいてもう一度お試しください。",
 	"dashboard.delete_cancel": "キャンセル",
 	"dashboard.your_url": "あなたの{box} URL",
 	"dashboard.copy": "コピー",

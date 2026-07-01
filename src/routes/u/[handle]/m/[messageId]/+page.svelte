@@ -36,6 +36,12 @@
 		return data.user?.did === person.did ? '/dashboard' : `/u/${person.handle}`;
 	}
 
+	function mapDeleteErrorByStatus(status: number): string {
+		if (status === 409) return $t('dashboard.delete_error.pds_conflict');
+		if (status === 502) return $t('dashboard.delete_error.pds_verify_failed');
+		return $t('dashboard.delete_error');
+	}
+
 	async function recordAnswerOnPds(answer: string): Promise<void> {
 		try {
 			const [{ createOAuthClient }, { Agent }] = await Promise.all([
@@ -83,7 +89,7 @@
 
 			const res = await fetch(`/api/messages/${data.message.id}/answer`, { method: 'DELETE' });
 			if (!res.ok) {
-				errorMsg = $t('dashboard.delete_error');
+				errorMsg = mapDeleteErrorByStatus(res.status);
 				return;
 			}
 
