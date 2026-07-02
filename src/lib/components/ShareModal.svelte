@@ -2,7 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { blueskyShareUrl, xShareUrl } from '$lib/utils/share.js';
 
-	let { ogImageUrl, shareUrl, onClose }: { ogImageUrl: string; shareUrl: string; onClose: () => void } = $props();
+	let { ogImageUrl, shareUrl, onClose, title }: { ogImageUrl: string; shareUrl: string; onClose: () => void; title?: string } = $props();
 
 	let linkCopied = $state(false);
 
@@ -20,7 +20,7 @@
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 w-full h-full max-w-none max-h-none p-4 m-0 border-none"
 >
 	<div class="bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{$t('dashboard.share_title')}</h2>
+		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{title ?? $t('dashboard.share_title')}</h2>
 
 		<img
 			src={ogImageUrl}

@@ -76,6 +76,8 @@
 	"dashboard.submit_answer": "回答を投稿",
 	"dashboard.answer_sending": "投稿中...",
 	"dashboard.share_title": "回答をシェア",
+	"dashboard.share_box_title": "めやすばこをシェア",
+	"dashboard.share_box": "シェア",
 	"dashboard.share_on_bluesky": "Blueskyでシェア",
 	"dashboard.share_on_x": "Xでシェア",
 	"dashboard.copy_link": "リンクをコピー",

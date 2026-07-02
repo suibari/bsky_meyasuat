@@ -15,6 +15,7 @@
 	let replyingTo = $state<string | null>(null);
 	let replyText = $state<string>('');
 	let sharingMessageId = $state<string | null>(null);
+	let showBoxShare = $state(false);
 	let isSubmittingReply = $state(false);
 	let replyError = $state<string | null>(null);
 	let deleteError = $state<string | null>(null);
@@ -191,17 +192,39 @@
 
 <div class="max-w-3xl mx-auto px-4 py-8">
 	<!-- URL シェア -->
-	<div class="bg-primary-950 border border-primary-800 rounded-2xl p-4 mb-6 flex items-center gap-3">
+	<div class="bg-primary-950 border border-primary-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-3">
 		<div class="flex-1 min-w-0">
 			<p class="text-xs text-primary-400 font-medium mb-0.5">{$t('dashboard.your_url', { values: { box: boxName } })}</p>
-			<p class="text-sm text-slate-300 truncate font-mono">{boxUrl}</p>
+			<a
+				href={boxUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="block text-sm text-slate-300 truncate font-mono hover:text-primary-300 hover:underline"
+			>
+				{boxUrl}
+			</a>
 		</div>
-		<button
-			onclick={copyUrl}
-			class="shrink-0 text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-		>
-			{copied ? $t('dashboard.copied') : $t('dashboard.copy')}
-		</button>
+		<div class="flex shrink-0 items-center gap-2">
+			<button
+				onclick={() => showBoxShare = true}
+				aria-label={$t('dashboard.share_box')}
+				class="shrink-0 p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg transition-colors"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+					<circle cx="18" cy="5" r="3" />
+					<circle cx="6" cy="12" r="3" />
+					<circle cx="18" cy="19" r="3" />
+					<path d="M8.59 13.51l6.83 3.98" />
+					<path d="M15.41 6.51l-6.82 3.98" />
+				</svg>
+			</button>
+			<button
+				onclick={copyUrl}
+				class="shrink-0 text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+			>
+				{copied ? $t('dashboard.copied') : $t('dashboard.copy')}
+			</button>
+		</div>
 	</div>
 
 	<div class="flex items-center justify-between mb-4">
@@ -426,5 +449,14 @@
 		ogImageUrl={ogImageUrl(data.appUrl, sharingMessageId)}
 		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
 		onClose={() => sharingMessageId = null}
+	/>
+{/if}
+
+{#if showBoxShare}
+	<ShareModal
+		ogImageUrl={`${data.appUrl}/api/og/u/${data.user?.handle}`}
+		shareUrl={boxUrl}
+		title={$t('dashboard.share_box_title')}
+		onClose={() => showBoxShare = false}
 	/>
 {/if}

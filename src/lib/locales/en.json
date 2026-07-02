@@ -76,6 +76,8 @@
 	"dashboard.submit_answer": "Post answer",
 	"dashboard.answer_sending": "Posting...",
 	"dashboard.share_title": "Share Answer",
+	"dashboard.share_box_title": "Share your box",
+	"dashboard.share_box": "Share",
 	"dashboard.share_on_bluesky": "Share on Bluesky",
 	"dashboard.share_on_x": "Share on X",
 	"dashboard.copy_link": "Copy link",
