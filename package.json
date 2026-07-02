@@ -12,7 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"generate:landing-ogp": "node scripts/generate-landing-ogp.mjs"
+		"generate:landing-ogp": "node scripts/generate-landing-ogp.mjs",
+		"generate:title-images": "node scripts/generate-title-images.mjs"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260628.1",

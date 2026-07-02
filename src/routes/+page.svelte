@@ -112,7 +112,7 @@
 		{#if data.lang === 'ja'}
 			<img src="/title.png" alt={$t('app.name')} class="h-12 w-auto sm:h-20 md:h-28" />
 		{:else}
-			<span class="font-killgothic text-5xl sm:text-6xl md:text-8xl font-bold text-white whitespace-nowrap">{$t('app.name')}</span>
+			<img src="/title-en.png" alt={$t('app.name')} class="h-12 w-auto sm:h-20 md:h-28" />
 		{/if}
 	</h1>
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">

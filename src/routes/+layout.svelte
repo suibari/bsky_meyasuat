@@ -37,7 +37,7 @@
 				{#if lang === 'ja'}
 					<img src="/title-nav.png" alt={$t('app.name')} class="h-5 w-auto" />
 				{:else}
-					<span class="font-killgothic font-bold text-primary-400 text-lg">{$t('app.name')}</span>
+					<img src="/title-nav-en.png" alt={$t('app.name')} class="h-5 w-auto" />
 				{/if}
 			</a>
 			<nav class="flex items-center gap-3 text-sm">
