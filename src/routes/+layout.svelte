@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import { browser } from '$app/environment';
 	import { locale } from '$lib/i18n.js';
 	import { t } from 'svelte-i18n';
 	import type { LayoutData } from './$types';
@@ -11,6 +12,22 @@
 	const lang = $derived(data.lang);
 
 	$effect(() => { locale.set(lang); });
+
+	function scrollToSignin(event: MouseEvent) {
+		if (!browser || window.location.pathname !== '/') return;
+
+		const target = document.getElementById('landing-login');
+		if (!target) return;
+
+		event.preventDefault();
+		window.history.replaceState(null, '', '#landing-login');
+		target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+		window.setTimeout(() => {
+			const input = document.getElementById('landing-handle');
+			if (input instanceof HTMLInputElement) input.focus({ preventScroll: true });
+		}, 350);
+	}
 </script>
 
 <div class="min-h-screen flex flex-col">
@@ -36,7 +53,7 @@
 						{/if}
 					</a>
 				{:else}
-					<a href="/#landing-handle" class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors">
+					<a href="/#landing-login" onclick={scrollToSignin} class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors">
 						{$t('nav.signin')}
 					</a>
 				{/if}

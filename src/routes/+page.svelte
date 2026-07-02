@@ -25,6 +25,13 @@
 			window.location.replace(
 				window.location.href.replace('http://localhost', 'http://127.0.0.1')
 			);
+			return;
+		}
+
+		if (window.location.hash === '#landing-login') {
+			window.requestAnimationFrame(() => {
+				document.getElementById('landing-login')?.scrollIntoView({ block: 'center' });
+			});
 		}
 	});
 
@@ -106,7 +113,7 @@
 			{$t('nav.dashboard')} →
 		</a>
 	{:else}
-		<div class="mx-auto w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-left shadow-sm">
+		<div id="landing-login" class="mx-auto w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-left shadow-sm">
 			{#if loading}
 				<div class="py-4 text-center text-slate-400">
 					<div class="mb-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
