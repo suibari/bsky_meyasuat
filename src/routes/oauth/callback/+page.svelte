@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { createOAuthClient } from '$lib/client/oauthClient.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -9,23 +10,9 @@
 	let didInput: HTMLInputElement;
 	let redirectToInput: HTMLInputElement;
 
-	function isLocalhost(url: string): boolean {
-		return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
-	}
-
 	onMount(async () => {
 		try {
-			const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
-			const local = isLocalhost(data.appUrl) || isLocalhost(location.origin);
-			const port = location.port;
-			const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;
-			const clientId = local
-				? `http://localhost?redirect_uri=${encodeURIComponent(redirectUri)}`
-				: `${data.appUrl}/oauth/client-metadata.json`;
-			const client = await BrowserOAuthClient.load({
-				clientId,
-				handleResolver: 'https://bsky.social'
-			});
+			const client = await createOAuthClient(data.appUrl);
 			const result = await client.callback(new URLSearchParams(location.hash.slice(1)));
 
 			// ネイティブフォームを POST し、サーバーが Set-Cookie + 302 を

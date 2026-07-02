@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { PUBLIC_APP_URL } from '$env/static/public';
+	import { createOAuthClient } from '$lib/client/oauthClient.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -35,10 +36,6 @@
 		}
 	});
 
-	function isLocalhost(url: string): boolean {
-		return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
-	}
-
 	async function signin() {
 		if (!browser) return;
 		const h = handle.trim().replace(/^@/, '');
@@ -47,19 +44,7 @@
 		loading = true;
 		error = '';
 		try {
-			const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
-			const local = isLocalhost(data.appUrl) || isLocalhost(location.origin);
-			const clientId = local
-				? (() => {
-						const port = location.port;
-						const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;
-						return `http://localhost?redirect_uri=${encodeURIComponent(redirectUri)}`;
-					})()
-				: `${data.appUrl}/oauth/client-metadata.json`;
-			const client = await BrowserOAuthClient.load({
-				clientId,
-				handleResolver: 'https://bsky.social'
-			});
+			const client = await createOAuthClient(data.appUrl);
 			await client.signIn(h, data.redirectTo ? { state: data.redirectTo } : undefined);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unknown error';

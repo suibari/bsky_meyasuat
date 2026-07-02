@@ -1,20 +1,29 @@
 import type { BrowserOAuthClient } from '@atproto/oauth-client-browser';
 import { Agent } from '@atproto/api';
+import { MEYASUAT_OAUTH_SCOPE } from '$lib/oauthScope.js';
+
+type OAuthClientLocation = Pick<Location, 'origin' | 'port'>;
 
 function isLocalhost(url: string): boolean {
 	return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
 }
 
+export function buildOAuthClientId(appUrl: string, currentLocation: OAuthClientLocation): string {
+	const local = isLocalhost(appUrl) || isLocalhost(currentLocation.origin);
+	if (!local) return `${appUrl}/oauth/client-metadata.json`;
+
+	const port = currentLocation.port;
+	const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;
+	const params = new URLSearchParams({
+		redirect_uri: redirectUri,
+		scope: MEYASUAT_OAUTH_SCOPE
+	});
+	return `http://localhost?${params.toString()}`;
+}
+
 export async function createOAuthClient(appUrl: string): Promise<BrowserOAuthClient> {
 	const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
-	const local = isLocalhost(appUrl) || isLocalhost(location.origin);
-	const clientId = local
-		? (() => {
-				const port = location.port;
-				const redirectUri = `http://127.0.0.1${port ? ':' + port : ''}/oauth/callback`;
-				return `http://localhost?redirect_uri=${encodeURIComponent(redirectUri)}`;
-			})()
-		: `${appUrl}/oauth/client-metadata.json`;
+	const clientId = buildOAuthClientId(appUrl, location);
 	return BrowserOAuthClient.load({
 		clientId,
 		handleResolver: 'https://bsky.social'
