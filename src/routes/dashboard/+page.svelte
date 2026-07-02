@@ -209,7 +209,7 @@
 			<button
 				onclick={() => showBoxShare = true}
 				aria-label={$t('dashboard.share_box')}
-				class="shrink-0 p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg transition-colors"
+				class="shrink-0 p-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
 					<circle cx="18" cy="5" r="3" />
@@ -221,7 +221,7 @@
 			</button>
 			<button
 				onclick={copyUrl}
-				class="shrink-0 text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+				class="shrink-0 text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 rounded-lg transition-colors"
 			>
 				{copied ? $t('dashboard.copied') : $t('dashboard.copy')}
 			</button>
@@ -231,7 +231,7 @@
 	<div class="flex items-center justify-between mb-4">
 		<h1 class="text-xl font-bold text-slate-100">{boxName}</h1>
 		{#if data.unreadCount > 0}
-			<span class="text-xs bg-accent-500 text-white px-2.5 py-1 rounded-full font-medium">
+			<span class="text-xs bg-red-600 text-white px-2.5 py-1 rounded-full font-medium">
 				{$t('dashboard.unread', { values: { count: data.unreadCount } })}
 			</span>
 		{/if}
@@ -302,7 +302,7 @@
 						answer={data.tab === 'unread' || data.tab === 'read' ? null : msg.answer}
 						answeredAt={data.tab === 'unread' || data.tab === 'read' ? undefined : msg.answeredAt}
 						answererLabel={$t('dashboard.your_answer')}
-						unread={data.tab === 'sent' ? false : !msg.isRead}
+						unread={data.tab === 'unread' && !msg.isRead}
 						expandedPaneOpen={(data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
 					>
 						{#snippet questionActions()}
@@ -324,7 +324,7 @@
 								{/if}
 								<button
 									onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
-									class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+									class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg transition-colors"
 								>
 									{$t('dashboard.answer_button')}
 								</button>
@@ -369,7 +369,7 @@
 										<button
 											onclick={() => submitReply(msg)}
 											disabled={isSubmittingReply || !replyText.trim()}
-											class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+											class="text-xs bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
 										>
 											{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
 										</button>

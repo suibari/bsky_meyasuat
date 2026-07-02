@@ -33,7 +33,7 @@
 				href={blueskyShareUrl(shareUrl)}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+				class="flex items-center justify-center gap-2 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
 			>
 				{$t('dashboard.share_on_bluesky')}
 			</a>
@@ -41,7 +41,7 @@
 				href={xShareUrl(shareUrl)}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="flex items-center justify-center gap-2 w-full bg-black hover:bg-gray-800 border border-slate-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+				class="flex items-center justify-center gap-2 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
 			>
 				{$t('dashboard.share_on_x')}
 			</a>

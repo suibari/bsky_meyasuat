@@ -112,7 +112,7 @@
 {#snippet content()}
 	<div class="flex items-start gap-3">
 		{#if unread}
-			<span class="shrink-0 w-2 h-2 rounded-full bg-primary-500 mt-1.5"></span>
+			<span class="shrink-0 w-2 h-2 rounded-full bg-red-600 mt-1.5"></span>
 		{/if}
 		<div class="flex-1 min-w-0">
 			{#if sender}
@@ -186,7 +186,7 @@
 	<a
 		{href}
 		class="block relative bg-slate-900 rounded-2xl border {unread
-			? 'border-primary-700'
+			? 'border-red-700'
 			: 'border-slate-800'} p-6 shadow-sm hover:border-primary-700 transition-colors"
 	>
 		{@render content()}
@@ -194,7 +194,7 @@
 {:else}
 	<div
 		class="relative bg-slate-900 rounded-2xl border {unread
-			? 'border-primary-700'
+			? 'border-red-700'
 			: 'border-slate-800'} p-6 shadow-sm"
 	>
 		{@render content()}

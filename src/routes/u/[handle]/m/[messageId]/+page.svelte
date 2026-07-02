@@ -164,7 +164,7 @@
 			<div class="flex gap-2 mb-4">
 				<button
 					onclick={() => showShareModal = true}
-					class="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 rounded-xl transition-colors"
+					class="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-3 rounded-xl transition-colors"
 				>
 					{$t('message.share_button')}
 				</button>
@@ -198,7 +198,7 @@
 			<button
 				onclick={submitAnswer}
 				disabled={submitting}
-				class="w-full mt-3 bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
+				class="w-full mt-3 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
 			>
 				{submitting ? $t('message.answer_sending') : $t('message.answer_button')}
 			</button>

@@ -36,8 +36,9 @@
 	--color-primary-900: #0c4a6e;
 	--color-primary-950: #082f49;
 
-	--color-accent-400: #fb7185;
-	--color-accent-500: #f43f5e;
+	--color-accent-400: #fb923c;
+	--color-accent-500: #f97316;
+	--color-accent-600: #ea580c;
 }
 
 @layer base {

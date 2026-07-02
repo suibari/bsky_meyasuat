@@ -246,7 +246,7 @@
 					</p>
 					<a
 						href={`/?redirect_to=${encodeURIComponent(page.url.pathname)}#landing-handle`}
-						class="inline-block text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
+						class="inline-block text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors"
 					>
 						{$t('nav.signin')}
 					</a>
@@ -272,7 +272,7 @@
 			<button
 				onclick={submit}
 				disabled={submitting || !turnstileToken}
-				class="w-full bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
+				class="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
 			>
 				{submitting ? $t('submit.sending') : $t('submit.button')}
 			</button>

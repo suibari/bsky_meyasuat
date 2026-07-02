@@ -101,7 +101,7 @@
 	{#if data.user}
 		<a
 			href="/dashboard"
-			class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-sm"
+			class="inline-block bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-sm"
 		>
 			{$t('nav.dashboard')} →
 		</a>
@@ -135,7 +135,7 @@
 					/>
 					<button
 						type="submit"
-						class="w-full rounded-lg bg-primary-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+						class="w-full rounded-lg bg-cyan-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
 					>
 						{$t('landing.cta')}
 					</button>
@@ -165,7 +165,7 @@
 			{ num: '03', title: $t('landing.how3_title'), desc: $t('landing.how3_desc') }
 		] as step}
 			<div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 text-center shadow-sm">
-				<div class="text-3xl font-bold text-primary-400 mb-3">{step.num}</div>
+				<div class="text-3xl font-bold text-accent-400 mb-3">{step.num}</div>
 				<h3 class="font-semibold text-slate-200 mb-2">{step.title}</h3>
 				<p class="text-sm text-slate-400">{step.desc}</p>
 			</div>
@@ -282,7 +282,7 @@
 		<div class="mt-6 flex justify-end">
 			<button
 				onclick={closeAbout}
-				class="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-5 py-2 rounded-full transition-colors"
+				class="bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium px-5 py-2 rounded-full transition-colors"
 			>
 				{$t('about.close')}
 			</button>
