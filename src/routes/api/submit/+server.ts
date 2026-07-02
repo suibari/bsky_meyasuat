@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
-import { getUserByDid, createMessage, checkRateLimit, logRateLimit } from '$lib/server/db.js';
+import { getUserByDid, createMessage, checkRateLimit, logRateLimit, PostgrestError } from '$lib/server/db.js';
 import { uploadToR2, messageImageKey, getTotalR2Bytes } from '$lib/server/r2.js';
 import { verifyTurnstile } from '$lib/server/turnstile.js';
 import { notifyCreator } from '$lib/server/bot.js';
@@ -83,13 +83,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	// メッセージ保存 (id を指定して INSERT)
-	const message = await createMessage(env, {
-		creatorDid,
-		body,
-		imageKeys,
-		ipHash,
-		senderDid: senderDid?.startsWith('did:') ? senderDid : null
-	});
+	let message;
+	try {
+		message = await createMessage(env, {
+			creatorDid,
+			body,
+			imageKeys,
+			ipHash,
+			senderDid: senderDid?.startsWith('did:') ? senderDid : null
+		});
+	} catch (e) {
+		if (e instanceof PostgrestError && e.code === '23514') error(400, 'Message too long');
+		throw e;
+	}
 
 	// レートリミットログ
 	await logRateLimit(env, ipHash, creatorDid);

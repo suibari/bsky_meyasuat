@@ -39,6 +39,25 @@ export type Message = {
 
 type Env = App.Platform['env'];
 
+export class PostgrestError extends Error {
+	code?: string;
+	constructor(message: string, code?: string) {
+		super(message);
+		this.code = code;
+	}
+}
+
+async function throwPostgrestError(res: Response, action: string): Promise<never> {
+	const text = await res.text();
+	let code: string | undefined;
+	try {
+		code = (JSON.parse(text) as { code?: string }).code;
+	} catch {
+		// レスポンスがJSONでない場合は code なしで投げる
+	}
+	throw new PostgrestError(`${action} failed: ${text}`, code);
+}
+
 function headers(env: Env): HeadersInit {
 	return {
 		'CF-Access-Client-Id': env.CF_ACCESS_CLIENT_ID,
@@ -199,7 +218,7 @@ export async function createMessage(
 		headers: headers(env),
 		body: JSON.stringify(body)
 	});
-	if (!res.ok) throw new Error(`createMessage failed: ${await res.text()}`);
+	if (!res.ok) await throwPostgrestError(res, 'createMessage');
 	const rows = await res.json() as Record<string, unknown>[];
 	return toMessage(rows[0]);
 }
@@ -305,7 +324,7 @@ export async function deleteMessage(env: Env, id: string, creatorDid: string): P
 }
 
 export async function answerMessage(env: Env, id: string, creatorDid: string, answer: string): Promise<void> {
-	await fetch(
+	const res = await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
 		{
 			method: 'PATCH',
@@ -313,6 +332,7 @@ export async function answerMessage(env: Env, id: string, creatorDid: string, an
 			body: JSON.stringify({ answer, answered_at: new Date().toISOString(), answer_deleted_at: null })
 		}
 	);
+	if (!res.ok) await throwPostgrestError(res, 'answerMessage');
 }
 
 export async function updateMessageAnswerRef(

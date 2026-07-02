@@ -135,7 +135,11 @@
 			const res = await fetch('/api/submit', { method: 'POST', body: fd });
 			if (res.status === 429) { errorMsg = $t('submit.error.rate_limit'); return; }
 			if (res.status === 507) { errorMsg = $t('submit.error.storage_limit'); return; }
-			if (!res.ok) { errorMsg = $t('submit.error.server'); return; }
+			if (!res.ok) {
+				const reason = await res.json().catch(() => null) as { message?: string } | null;
+				errorMsg = reason?.message === 'Message too long' ? $t('submit.error.too_long') : $t('submit.error.server');
+				return;
+			}
 
 			const result = await res.json() as { messageId: string };
 			if (shareHandle && data.user) {

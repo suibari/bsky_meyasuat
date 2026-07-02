@@ -114,7 +114,11 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ answer: answerText.trim() })
 			});
-			if (!res.ok) { errorMsg = $t('message.answer_error.server'); return; }
+			if (!res.ok) {
+				const reason = await res.json().catch(() => null) as { message?: string } | null;
+				errorMsg = reason?.message === 'Answer too long' ? $t('message.answer_error.too_long') : $t('message.answer_error.server');
+				return;
+			}
 			const result = await res.json() as { answer: string };
 			savedAnswer = result.answer;
 			

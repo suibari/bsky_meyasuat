@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
-import { getMessageById, answerMessage, deleteAnswerForCreator } from '$lib/server/db.js';
+import { getMessageById, answerMessage, deleteAnswerForCreator, PostgrestError } from '$lib/server/db.js';
 import { getRecordByAtUri } from '$lib/server/atproto.js';
 
 export const POST: RequestHandler = async ({ params, locals, platform, request }) => {
@@ -17,7 +17,12 @@ export const POST: RequestHandler = async ({ params, locals, platform, request }
 	if (!answer) error(400, 'Answer is required');
 	if (answer.length > 10000) error(400, 'Answer too long');
 
-	await answerMessage(env, params.id, locals.user.did, answer);
+	try {
+		await answerMessage(env, params.id, locals.user.did, answer);
+	} catch (e) {
+		if (e instanceof PostgrestError && e.code === '23514') error(400, 'Answer too long');
+		throw e;
+	}
 
 	const appUrl = env.PUBLIC_APP_URL?.trim();
 	if (appUrl) {

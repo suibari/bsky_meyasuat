@@ -100,7 +100,8 @@
 				body: JSON.stringify({ answer: replyText.trim() })
 			});
 			if (!res.ok) {
-				replyError = $t('message.answer_error.server');
+				const reason = await res.json().catch(() => null) as { message?: string } | null;
+				replyError = reason?.message === 'Answer too long' ? $t('message.answer_error.too_long') : $t('message.answer_error.server');
 				return;
 			}
 			const result = await res.json() as { answer: string };
