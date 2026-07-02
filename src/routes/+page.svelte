@@ -255,6 +255,7 @@
 				<li>・{$t('about.feature4')}</li>
 			</ul>
 			<hr class="border-slate-700" />
+			<h3 class="text-sm font-bold text-primary-400">{$t('about.notice_heading')}</h3>
 			<ul class="space-y-1 text-slate-400">
 				<li>
 					{$t('about.notice1_prefix')}<a
@@ -266,8 +267,10 @@
 				</li>
 				<li>{$t('about.notice2')}</li>
 				<li>{$t('about.notice3')}</li>
-				<li>{$t('about.notice4')}</li>
+				<li>{$t('about.notice_conduct')}</li>
 				<li>{$t('about.notice5')}</li>
+				<li>{$t('about.disclaimer')}</li>
+				<li>{$t('about.notice4')}</li>
 				<li>
 					<a
 						href="https://github.com/suibari/bsky_meyasuat"
