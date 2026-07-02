@@ -30,7 +30,7 @@
 	let deletingAnswer = $state(false);
 	$effect(() => { savedAnswer = data.message.answer; });
 
-	const MAX_CHARS = 1000;
+	const MAX_CHARS = 10000;
 
 	function avatarHref(person: { did: string; handle: string }): string {
 		return data.user?.did === person.did ? '/dashboard' : `/u/${person.handle}`;

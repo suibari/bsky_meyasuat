@@ -17,8 +17,8 @@
 					},
 					"text": {
 						"type": "string",
-						"maxLength": 3000,
-						"maxGraphemes": 1000,
+						"maxLength": 30000,
+						"maxGraphemes": 10000,
 						"description": "The question text."
 					},
 					"images": {

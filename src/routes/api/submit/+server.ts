@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	// バリデーション
 	if (!body) error(400, 'Message body is required');
-	if (body.length > 1000) error(400, 'Message too long');
+	if (body.length > 10000) error(400, 'Message too long');
 	if (!creatorDid.startsWith('did:')) error(400, 'Invalid creator');
 	if (senderDid && !senderDid.startsWith('did:')) error(400, 'Invalid sender');
 	if (imageFiles.length > 4) error(400, 'Too many images');

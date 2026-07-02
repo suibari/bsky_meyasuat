@@ -68,7 +68,7 @@
 		}
 	}
 
-	const MAX_CHARS = 1000;
+	const MAX_CHARS = 10000;
 	const MAX_IMAGES = 4;
 	const MAX_SIZE = 1024 * 1024;
 

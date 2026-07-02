@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ params, locals, platform, request }
 	const body = await request.json().catch(() => ({})) as { answer?: string };
 	const answer = (body.answer ?? '').trim();
 	if (!answer) error(400, 'Answer is required');
-	if (answer.length > 1000) error(400, 'Answer too long');
+	if (answer.length > 10000) error(400, 'Answer too long');
 
 	await answerMessage(env, params.id, locals.user.did, answer);
 

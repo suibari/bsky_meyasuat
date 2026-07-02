@@ -17,8 +17,8 @@
 					},
 					"question": {
 						"type": "string",
-						"maxLength": 3000,
-						"maxGraphemes": 1000,
+						"maxLength": 30000,
+						"maxGraphemes": 10000,
 						"description": "Text snapshot of the question being answered."
 					},
 					"questionRef": {
@@ -28,8 +28,8 @@
 					},
 					"answer": {
 						"type": "string",
-						"maxLength": 3000,
-						"maxGraphemes": 1000,
+						"maxLength": 30000,
+						"maxGraphemes": 10000,
 						"description": "The answer text."
 					},
 					"url": {

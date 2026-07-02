@@ -20,7 +20,7 @@
 	let replyError = $state<string | null>(null);
 	let deleteError = $state<string | null>(null);
 
-	const MAX_CHARS = 1000;
+	const MAX_CHARS = 10000;
 
 	const boxUrl = $derived(`${data.appUrl}/u/${data.user?.handle}`);
 	const boxName = $derived(data.user?.boxName?.trim() || $t('dashboard.title'));
