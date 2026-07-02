@@ -82,6 +82,16 @@
 		'landing.hero_highlight_notify',
 		'landing.hero_highlight_atproto'
 	];
+
+	// ヒーロー背景で「メッセージが届いた」雰囲気を演出する浮遊カード。
+	// 画像は実際のOGPカード生成コードで書き出したサンプル(scripts/generate-landing-ogp.mjs)。
+	// 上中央はタイトルが配置されるため、左右下部のみに配置。
+	const floatingCards = [
+		{ src: '/landing/ogp-sample-1.png', pos: 'left-[2%] top-[12%] w-36 sm:w-52', rotate: '-6deg', delay: '0s', duration: '15s' },
+		{ src: '/landing/ogp-sample-2.png', pos: 'right-[3%] top-[8%] w-32 sm:w-48 hidden sm:block', rotate: '4deg', delay: '3.5s', duration: '17s' },
+		{ src: '/landing/ogp-sample-3.png', pos: 'left-[5%] bottom-[6%] w-40 sm:w-56 hidden sm:block', rotate: '3deg', delay: '7s', duration: '19s' },
+		{ src: '/landing/ogp-sample-1.png', pos: 'right-[6%] bottom-[10%] w-32 sm:w-44', rotate: '-3deg', delay: '10.5s', duration: '16s' }
+	];
 </script>
 
 <svelte:head>
@@ -95,7 +105,18 @@
 </svelte:head>
 
 <!-- ヒーロー -->
-<section class="bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
+<section class="relative overflow-hidden bg-linear-to-b from-slate-900 to-slate-950 py-20 px-4 text-center">
+	<div class="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+		{#each floatingCards as card}
+			<img
+				src={card.src}
+				alt=""
+				class="floating-card absolute rounded-xl border border-slate-700/50 shadow-xl shadow-black/40 {card.pos}"
+				style="--card-rotate: {card.rotate}; animation-delay: {card.delay}; animation-duration: {card.duration};"
+			/>
+		{/each}
+	</div>
+	<div class="relative z-10">
 	<h1 class="mb-8 flex items-center justify-center gap-3 sm:gap-4">
 		<img
 			src="/icon_meyasuat_white.png"
@@ -172,6 +193,7 @@
 			>{$t('landing.register_bsky')}</a>
 		</p>
 	{/if}
+	</div>
 </section>
 
 <!-- 使い方 -->
@@ -311,3 +333,40 @@
 	</div>
 </dialog>
 {/if}
+
+<style>
+	.floating-card {
+		opacity: 0;
+		animation-name: card-float;
+		animation-timing-function: ease-in-out;
+		animation-iteration-count: infinite;
+	}
+
+	@keyframes card-float {
+		0% {
+			opacity: 0;
+			transform: translateY(28px) scale(0.94) rotate(var(--card-rotate, 0deg));
+		}
+		12% {
+			opacity: 0.25;
+			transform: translateY(0) scale(1) rotate(var(--card-rotate, 0deg));
+		}
+		45% {
+			opacity: 0.25;
+			transform: translateY(-12px) scale(1) rotate(var(--card-rotate, 0deg));
+		}
+		70%,
+		100% {
+			opacity: 0;
+			transform: translateY(-32px) scale(0.96) rotate(var(--card-rotate, 0deg));
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.floating-card {
+			animation: none;
+			opacity: 0.12;
+			transform: rotate(var(--card-rotate, 0deg));
+		}
+	}
+</style>

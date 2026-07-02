@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getUserByHandle, getUserByDid } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-import { ensureInit, loadFonts, loadIcon, fetchImageAsDataUri, satori, Resvg } from '$lib/server/og.js';
+import { ensureInit, loadFonts, loadIcon, fetchImageAsDataUri, buildUserOgSvgNode, satori, Resvg } from '$lib/server/og.js';
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
@@ -26,181 +26,14 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const boxName = creator.boxName?.trim() || 'めやすばこ';
 	const avatarDataUri = creator.avatarUrl ? await fetchImageAsDataUri(creator.avatarUrl) : null;
 
-	const avatarNode = avatarDataUri
-		? {
-				type: 'img',
-				props: {
-					src: avatarDataUri,
-					width: 140,
-					height: 140,
-					style: { borderRadius: '50%', objectFit: 'cover' }
-				}
-			}
-		: {
-				type: 'div',
-				props: {
-					style: {
-						width: '140px',
-						height: '140px',
-						borderRadius: '50%',
-						background: '#e0f2fe',
-						color: '#0284c7',
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						fontSize: '56px',
-						fontWeight: 700,
-						fontFamily: '"Noto Sans JP"'
-					},
-					children: name[0].toUpperCase()
-				}
-			};
-
 	const svg = await satori(
-		{
-			type: 'div',
-			props: {
-				style: {
-					width: '1200px',
-					height: '630px',
-					display: 'flex',
-					flexDirection: 'column',
-					background: '#ffffff',
-					padding: '64px',
-					fontFamily: '"Noto Sans JP", sans-serif'
-				},
-				children: [
-					{
-						type: 'div',
-						props: {
-							style: {
-								fontSize: '52px',
-								fontWeight: 700,
-								color: '#0369a1',
-								fontFamily: '"KillGothic"'
-							},
-							children: `${name} の ${boxName}`
-						}
-					},
-					{
-						type: 'div',
-						props: {
-							style: {
-								display: 'flex',
-								flexGrow: 1,
-								alignItems: 'center',
-								justifyContent: 'center',
-								fontSize: '80px',
-								fontWeight: 400,
-								color: '#0f172a'
-							},
-							children: 'メッセージを募集中'
-						}
-					},
-					{
-						type: 'div',
-						props: {
-							style: {
-								display: 'flex',
-								alignItems: 'flex-end',
-								justifyContent: 'space-between',
-								width: '100%'
-							},
-							children: [
-								{
-									type: 'div',
-									props: {
-										style: {
-											display: 'flex',
-											alignItems: 'center',
-											gap: '24px'
-										},
-										children: [
-											avatarNode,
-											{
-												type: 'div',
-												props: {
-													style: { display: 'flex', flexDirection: 'column' },
-													children: [
-														{
-															type: 'div',
-															props: {
-																style: {
-																	fontSize: '40px',
-																	fontWeight: 700,
-																	color: '#0f172a'
-																},
-																children: name
-															}
-														},
-														{
-															type: 'div',
-															props: {
-																style: {
-																	fontSize: '24px',
-																	color: '#64748b',
-																	marginTop: '8px'
-																},
-																children: `@${creator.handle}`
-															}
-														}
-													]
-												}
-											}
-										]
-									}
-								},
-								{
-									type: 'div',
-									props: {
-										style: { display: 'flex', alignItems: 'center', gap: '16px' },
-										children: [
-											{ type: 'img', props: { src: icon, width: 72, height: 72 } },
-											{
-												type: 'div',
-												props: {
-													style: {
-														display: 'flex',
-														flexDirection: 'column',
-														alignItems: 'flex-end',
-														gap: '8px'
-													},
-													children: [
-														{
-															type: 'div',
-															props: {
-																style: {
-																	fontSize: '64px',
-																	fontWeight: 700,
-																	color: '#0ea5e9',
-																	fontFamily: '"KillGothic"'
-																},
-																children: 'めやすあっと'
-															}
-														},
-														{
-															type: 'div',
-															props: {
-																style: {
-																	fontSize: '18px',
-																	color: '#94a3b8',
-																	fontFamily: '"KillGothic"'
-																},
-																children: 'meyasuat.suibari.com'
-															}
-														}
-													]
-												}
-											}
-										]
-									}
-								}
-							]
-						}
-					}
-				]
-			}
-		},
+		buildUserOgSvgNode({
+			name,
+			handle: creator.handle,
+			boxName,
+			avatarDataUri,
+			icon
+		}),
 		{
 			width: 1200,
 			height: 630,

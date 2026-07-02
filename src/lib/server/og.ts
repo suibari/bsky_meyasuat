@@ -67,6 +67,42 @@ export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promis
 	}
 }
 
+export function buildAvatarNode(
+	dataUri: string | null,
+	label: string,
+	size: number,
+	colors: { background: string; color: string } = { background: '#334155', color: '#cbd5e1' },
+	fontSize: number = Math.round(size / 2)
+) {
+	return dataUri
+		? {
+				type: 'img',
+				props: {
+					src: dataUri,
+					style: { width: `${size}px`, height: `${size}px`, borderRadius: '50%', objectFit: 'cover' }
+				}
+			}
+		: {
+				type: 'div',
+				props: {
+					style: {
+						width: `${size}px`,
+						height: `${size}px`,
+						borderRadius: '50%',
+						background: colors.background,
+						color: colors.color,
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						fontSize: `${fontSize}px`,
+						fontWeight: 700,
+						fontFamily: '"Noto Sans JP"'
+					},
+					children: label[0].toUpperCase()
+				}
+			};
+}
+
 export function buildQuestionNode(body: string, hasHeader = false) {
 	const len = body.length;
 	const fontSize = hasHeader
@@ -91,6 +127,323 @@ export function buildQuestionNode(body: string, hasHeader = false) {
 					: {})
 			},
 			children: body
+		}
+	};
+}
+
+export function buildMessageOgSvgNode({
+	body,
+	sender,
+	creatorName,
+	boxName,
+	senderAvatarDataUri,
+	creatorAvatarDataUri,
+	icon
+}: {
+	body: string;
+	sender: { displayName: string | null; handle: string } | null;
+	creatorName: string;
+	boxName: string;
+	senderAvatarDataUri: string | null;
+	creatorAvatarDataUri: string | null;
+	icon: string;
+}) {
+	const headerNode = sender
+		? {
+				type: 'div',
+				props: {
+					style: { display: 'flex', alignItems: 'center', gap: '12px' },
+					children: [
+						buildAvatarNode(senderAvatarDataUri, sender.displayName ?? sender.handle, 48),
+						{
+							type: 'div',
+							props: {
+								style: { fontSize: '28px', color: '#475569', fontFamily: '"Noto Sans JP"' },
+								children: `${((sender.displayName ?? sender.handle).length > 12 ? (sender.displayName ?? sender.handle).slice(0, 12) + '…' : (sender.displayName ?? sender.handle))}さんからのメッセージ`
+							}
+						}
+					]
+				}
+			}
+		: null;
+
+	return {
+		type: 'div',
+		props: {
+			style: {
+				width: '1200px',
+				height: '630px',
+				display: 'flex',
+				flexDirection: 'column',
+				justifyContent: 'space-between',
+				background: '#ffffff',
+				padding: '64px',
+				fontFamily: '"Noto Sans JP", sans-serif'
+			},
+			children: [
+				headerNode,
+				{
+					type: 'div',
+					props: {
+						style: {
+							display: 'flex',
+							flex: 1,
+							alignItems: 'center',
+							justifyContent: 'center',
+							overflow: 'hidden'
+						},
+						children: buildQuestionNode(body, !!sender)
+					}
+				},
+				{
+					type: 'div',
+					props: {
+						style: {
+							display: 'flex',
+							alignItems: 'flex-end',
+							justifyContent: 'space-between'
+						},
+						children: [
+							{
+								type: 'div',
+								props: {
+									style: { display: 'flex', alignItems: 'center', gap: '16px' },
+									children: [
+										buildAvatarNode(creatorAvatarDataUri, creatorName, 48),
+										{
+											type: 'div',
+											props: {
+												style: {
+													fontSize: '24px',
+													color: '#64748b',
+													fontFamily: '"Noto Sans JP"'
+												},
+												children: `${creatorName} の ${boxName}`
+											}
+										}
+									]
+								}
+							},
+							{
+								type: 'div',
+								props: {
+									style: { display: 'flex', alignItems: 'center', gap: '12px' },
+									children: [
+										{ type: 'img', props: { src: icon, width: 52, height: 52 } },
+										{
+											type: 'div',
+											props: {
+												style: {
+													display: 'flex',
+													flexDirection: 'column',
+													alignItems: 'flex-end',
+													gap: '4px'
+												},
+												children: [
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '48px',
+																fontWeight: 700,
+																color: '#0ea5e9',
+																fontFamily: '"KillGothic"'
+															},
+															children: 'めやすあっと'
+														}
+													},
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '14px',
+																color: '#94a3b8',
+																fontFamily: '"KillGothic"'
+															},
+															children: 'meyasuat.suibari.com'
+														}
+													}
+												]
+											}
+										}
+									]
+								}
+							}
+						]
+					}
+				}
+			].filter(Boolean)
+		}
+	};
+}
+
+export function buildUserOgSvgNode({
+	name,
+	handle,
+	boxName,
+	avatarDataUri,
+	icon
+}: {
+	name: string;
+	handle: string;
+	boxName: string;
+	avatarDataUri: string | null;
+	icon: string;
+}) {
+	const avatarNode = avatarDataUri
+		? {
+				type: 'img',
+				props: {
+					src: avatarDataUri,
+					width: 140,
+					height: 140,
+					style: { borderRadius: '50%', objectFit: 'cover' }
+				}
+			}
+		: buildAvatarNode(null, name, 140, { background: '#e0f2fe', color: '#0284c7' }, 56);
+
+	return {
+		type: 'div',
+		props: {
+			style: {
+				width: '1200px',
+				height: '630px',
+				display: 'flex',
+				flexDirection: 'column',
+				background: '#ffffff',
+				padding: '64px',
+				fontFamily: '"Noto Sans JP", sans-serif'
+			},
+			children: [
+				{
+					type: 'div',
+					props: {
+						style: {
+							fontSize: '52px',
+							fontWeight: 700,
+							color: '#0369a1',
+							fontFamily: '"KillGothic"'
+						},
+						children: `${name} の ${boxName}`
+					}
+				},
+				{
+					type: 'div',
+					props: {
+						style: {
+							display: 'flex',
+							flexGrow: 1,
+							alignItems: 'center',
+							justifyContent: 'center',
+							fontSize: '80px',
+							fontWeight: 400,
+							color: '#0f172a'
+						},
+						children: 'メッセージを募集中'
+					}
+				},
+				{
+					type: 'div',
+					props: {
+						style: {
+							display: 'flex',
+							alignItems: 'flex-end',
+							justifyContent: 'space-between',
+							width: '100%'
+						},
+						children: [
+							{
+								type: 'div',
+								props: {
+									style: {
+										display: 'flex',
+										alignItems: 'center',
+										gap: '24px'
+									},
+									children: [
+										avatarNode,
+										{
+											type: 'div',
+											props: {
+												style: { display: 'flex', flexDirection: 'column' },
+												children: [
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '40px',
+																fontWeight: 700,
+																color: '#0f172a'
+															},
+															children: name
+														}
+													},
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '24px',
+																color: '#64748b',
+																marginTop: '8px'
+															},
+															children: `@${handle}`
+														}
+													}
+												]
+											}
+										}
+									]
+								}
+							},
+							{
+								type: 'div',
+								props: {
+									style: { display: 'flex', alignItems: 'center', gap: '16px' },
+									children: [
+										{ type: 'img', props: { src: icon, width: 72, height: 72 } },
+										{
+											type: 'div',
+											props: {
+												style: {
+													display: 'flex',
+													flexDirection: 'column',
+													alignItems: 'flex-end',
+													gap: '8px'
+												},
+												children: [
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '64px',
+																fontWeight: 700,
+																color: '#0ea5e9',
+																fontFamily: '"KillGothic"'
+															},
+															children: 'めやすあっと'
+														}
+													},
+													{
+														type: 'div',
+														props: {
+															style: {
+																fontSize: '18px',
+																color: '#94a3b8',
+																fontFamily: '"KillGothic"'
+															},
+															children: 'meyasuat.suibari.com'
+														}
+													}
+												]
+											}
+										}
+									]
+								}
+							}
+						]
+					}
+				}
+			]
 		}
 	};
 }
