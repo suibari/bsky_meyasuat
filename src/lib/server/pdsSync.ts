@@ -1,3 +1,27 @@
+// =============================================================================
+// PDS 同期・改ざん検証モジュール
+//
+// このアプリの質問(com.suibari.meyasuat.question)・回答(com.suibari.meyasuat.answer)
+// レコードは各ユーザー自身のPDS上に存在する。AppView側DB(messagesテーブル)は
+// Firehose/Jetstreamではなく、ページ表示のたびにPDSをポーリングして同期する。
+//
+// 【改ざん防止の方針：初回取得時cidフリーズ方式】
+// AT Protocolの仕様上、リポジトリ所有者は自分のレコードを putRecord で自由に
+// 書き換えられるため、PDSレベルで編集を禁止することはできない。そこでAppView側で
+// 「レコードを初めて取得したときのcidを固定し、以後そのcidと異なる内容が来たら
+// 改ざんとみなして無視する」ことで、回答済み質問文などの事後編集を防ぐ。
+//
+// cidはレコード内容(DAG-CBOR)の暗号学的ハッシュなので、
+//   保存cid === PDS側cid  ⟺  内容がバイト単位で同一
+// が成り立つ。つまり改ざん検出はcidの突合のみで十分で、本文の文字列比較は不要。
+//
+// 【各関数の責務】
+//   - ingest系(list走査／ダッシュボード表示時)：唯一の「書き込み」経路。
+//     初回取得・cid確定・削除復活の自己修復・改ざんブロックを行う。
+//   - reconcileMessageWithPds(メッセージ詳細ページ表示時)：削除検知(404)と
+//     改ざん検知(cid不一致のログ記録)のみ。本文は一切書き換えない。
+// =============================================================================
+
 import { getRecordByAtUri, listRecordsByRepo, parseAtUri } from '$lib/server/atproto.js';
 import type { Message } from '$lib/server/db.js';
 import {
@@ -20,6 +44,20 @@ function logSkippedRecord(reason: string, uri: string, details?: Record<string, 
 		uri,
 		...details
 	});
+}
+
+/**
+ * 改ざん（事後編集）を検出する。
+ * capturedCid: AppView側DBに既に確定・保存済みのcid
+ * incomingCid: 今回PDSから取得したレコードのcid
+ *
+ * 既にcidを確定済み(capturedCidが非null)で、かつPDS側cidがそれと異なる場合のみtrue
+ * ＝ 一度取得したレコードが後から書き換えられた、とみなす。
+ * capturedCidがnull(＝未取得・初回、または削除でリセット済み)の場合はfalseを返し、
+ * 通常の初回取り込み・削除後の再取り込みは従来どおり許可する。
+ */
+function isTamperedCidMismatch(capturedCid: string | null, incomingCid: string | null | undefined): boolean {
+	return !!capturedCid && !!incomingCid && incomingCid !== capturedCid;
 }
 
 function asString(value: unknown): string | null {
@@ -100,12 +138,27 @@ async function ingestQuestionCreatesFromPds(env: Env, senderDid: string, appUrl:
 			continue;
 		}
 
+		// 改ざん検知：確定済みcidと異なるcidのレコードが来たら、本文もuri/cidも
+		// 一切上書きせずログだけ残してスキップする（事後編集を反映させない）。
+		if (isTamperedCidMismatch(message.questionRecordCid, rec.cid)) {
+			logSkippedRecord('question-cid-mismatch-tamper-blocked', rec.uri, {
+				messageId: message.id,
+				capturedCid: message.questionRecordCid,
+				incomingCid: rec.cid
+			});
+			continue;
+		}
+
+		// uri/cidの初回確定・バックフィル（未確定のレコードにここで指紋を刻む）。
 		if (message.questionRecordUri !== rec.uri || message.questionRecordCid !== rec.cid) {
 			const updated = await updateMessageQuestionRef(env, message.id, senderDid, rec.uri, rec.cid);
 			if (updated) changed = true;
 		}
 
-		if (text !== message.body || !!message.senderDeletedAt) {
+		// 本文は初回取得時に確定（フリーズ）させる。cidが一致していれば内容は
+		// バイト単位で同一なので本文の文字列比較は不要。ここで書き込むのは自己修復
+		// （削除扱いにしたレコードがPDS上に復活したケース）だけ。
+		if (message.senderDeletedAt) {
 			await reconcileQuestionFromPds(env, message.id, { body: text, cid: rec.cid });
 			changed = true;
 		}
@@ -172,16 +225,25 @@ async function ingestAnswerCreatesFromPds(env: Env, creatorDid: string, appUrl: 
 			continue;
 		}
 
+		// 改ざん検知（回答レコード）：確定済みcidと不一致ならログのみ残してスキップ。
+		if (isTamperedCidMismatch(message.answerRecordCid, rec.cid)) {
+			logSkippedRecord('answer-cid-mismatch-tamper-blocked', rec.uri, {
+				messageId: message.id,
+				capturedCid: message.answerRecordCid,
+				incomingCid: rec.cid
+			});
+			continue;
+		}
+
+		// uri/cidの初回確定・バックフィル。
 		if (message.answerRecordUri !== rec.uri || message.answerRecordCid !== rec.cid) {
 			const updated = await updateMessageAnswerRef(env, message.id, creatorDid, rec.uri, rec.cid);
 			if (updated) changed = true;
 		}
 
-		if (
-			answerText !== message.answer ||
-			(createdAt && createdAt !== message.answeredAt) ||
-			!!message.answerDeletedAt
-		) {
+		// 質問と同様、回答本文も初回取得でフリーズ。cid一致＝内容同一なので本文比較は不要。
+		// 書き込むのは自己修復（削除扱いの回答レコードが復活したケース）のみ。
+		if (message.answerDeletedAt) {
 			await reconcileAnswerFromPds(env, message.id, {
 				answer: answerText,
 				answeredAt: createdAt ?? message.answeredAt,
@@ -205,22 +267,32 @@ export async function ingestCreatesFromPdsForUser(env: Env, userDid: string, app
 	return questionChanged || answerChanged;
 }
 
+/**
+ * 個別メッセージをPDSと突合する（メッセージ詳細ページ表示時に実行）。
+ * ここでの役割は2つだけ：
+ *   1. 削除検知：PDSで404なら、作成者/送信者がレコードを削除したとみなし削除マークを付ける
+ *      （作成・削除は正当な操作として追従する）。
+ *   2. 改ざん検知：レコードは在るがcidが確定済みの値と食い違う場合、事後編集とみなしログのみ。
+ * 本文(body/answer)は初回取得でフリーズ済みのため、この関数では一切書き換えない。
+ */
 export async function reconcileMessageWithPds(env: Env, message: Message): Promise<boolean> {
 	let changed = false;
 
 	if (message.questionRecordUri) {
 		const question = await getRecordByAtUri(message.questionRecordUri);
 		if (question.notFound) {
+			// PDS上でレコードが消えている＝送信者が質問を削除した → 削除マークを付ける。
 			await markQuestionMissingFromPds(env, message.id);
 			changed = true;
 		} else if (question.found && question.value) {
-			const text = asString(question.value.text);
-			if (text && (text !== message.body || (question.cid && question.cid !== message.questionRecordCid) || !!message.senderDeletedAt)) {
-				await reconcileQuestionFromPds(env, message.id, {
-					body: text,
-					cid: question.cid ?? null
+			// レコードが存在する場合は「改ざん（cid不一致）」の検知だけ行う。
+			// 本文はフリーズ済みで上書きしない。cidが一致していれば内容も同一なので何もしない。
+			if (isTamperedCidMismatch(message.questionRecordCid, question.cid ?? null)) {
+				logSkippedRecord('question-cid-mismatch-tamper-blocked', message.questionRecordUri, {
+					messageId: message.id,
+					capturedCid: message.questionRecordCid,
+					incomingCid: question.cid ?? null
 				});
-				changed = true;
 			}
 		}
 	}
@@ -228,25 +300,17 @@ export async function reconcileMessageWithPds(env: Env, message: Message): Promi
 	if (message.answerRecordUri) {
 		const answer = await getRecordByAtUri(message.answerRecordUri);
 		if (answer.notFound) {
+			// PDS上で回答レコードが消えている＝作成者が回答を削除した → 削除マークを付ける。
 			await markAnswerMissingFromPds(env, message.id);
 			changed = true;
 		} else if (answer.found && answer.value) {
-			const answerText = asString(answer.value.answer);
-			const createdAt = asString(answer.value.createdAt);
-			if (
-				answerText && (
-					answerText !== message.answer ||
-					(answer.cid && answer.cid !== message.answerRecordCid) ||
-					(createdAt && createdAt !== message.answeredAt) ||
-					!!message.answerDeletedAt
-				)
-			) {
-				await reconcileAnswerFromPds(env, message.id, {
-					answer: answerText,
-					answeredAt: createdAt ?? message.answeredAt,
-					cid: answer.cid ?? null
+			// 質問と同様、存在する回答レコードは改ざん検知のみ。本文は上書きしない。
+			if (isTamperedCidMismatch(message.answerRecordCid, answer.cid ?? null)) {
+				logSkippedRecord('answer-cid-mismatch-tamper-blocked', message.answerRecordUri, {
+					messageId: message.id,
+					capturedCid: message.answerRecordCid,
+					incomingCid: answer.cid ?? null
 				});
-				changed = true;
 			}
 		}
 	}
