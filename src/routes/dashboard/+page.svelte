@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
+	import { navigating } from '$app/state';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
 	import { deleteRecordOnPds } from '$lib/client/oauthClient.js';
@@ -264,135 +265,142 @@
 		</a>
 	</div>
 
-	{#if data.messages.length === 0}
-		<div class="text-center py-16 text-slate-600">
-			<p class="text-4xl mb-3">📭</p>
-			<p class="font-medium">
-				{data.tab === 'answered'
-					? $t('dashboard.empty_answered')
-					: data.tab === 'read'
-						? $t('dashboard.empty_read')
-						: data.tab === 'sent'
-							? $t('dashboard.empty_sent')
-							: $t('dashboard.empty_unread')}
-			</p>
-		</div>
-	{:else}
-		<div class="space-y-3">
-			{#each data.messages as msg (msg.id)}
-				<QACard
-					body={msg.body}
-					sender={data.tab === 'sent' ? msg.creator : msg.sender}
-					senderHref={data.tab === 'sent'
-						? msg.creator
-							? `/u/${msg.creator.handle}`
-							: undefined
-						: msg.sender
-							? `/u/${msg.sender.handle}`
-							: undefined}
-					imageUrls={msg.imageUrls}
-					createdAt={msg.createdAt}
-					answer={data.tab === 'unread' || data.tab === 'read' ? null : msg.answer}
-					answeredAt={data.tab === 'unread' || data.tab === 'read' ? undefined : msg.answeredAt}
-					answererLabel={$t('dashboard.your_answer')}
-					unread={data.tab === 'sent' ? false : !msg.isRead}
-				>
-					{#snippet questionActions()}
-						{#if data.tab === 'unread' || data.tab === 'read'}
-							{#if !msg.isRead}
-								<button
-									onclick={() => markRead(msg.id)}
-									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-								>
-									{$t('dashboard.mark_read')}
-								</button>
-							{:else}
-								<button
-									onclick={() => markUnread(msg.id)}
-									class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-								>
-									{$t('dashboard.mark_unread')}
-								</button>
-							{/if}
-							<button
-								onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
-								class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.answer_button')}
-							</button>
-							<button
-								onclick={() => confirmDelete(msg.id, 'message')}
-								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.hide_question')}
-							</button>
-						{:else if data.tab === 'sent'}
-							<button
-								onclick={() => confirmDelete(msg.id, 'question')}
-								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.delete_question')}
-							</button>
-						{/if}
-					{/snippet}
-					{#if (data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
-						{#snippet expandedPane()}
-							{#if replyError}
-								<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
-							{/if}
-							<p class="mb-2 text-xs font-medium text-slate-400">{$t('message.answer_label')}</p>
-							<textarea
-								bind:value={replyText}
-								placeholder={$t('dashboard.answer_placeholder')}
-								rows="4"
-								class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
-							></textarea>
-							<div class="flex items-center justify-between">
-								<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
-									{replyText.length} / {MAX_CHARS}
-								</p>
-								<div class="flex gap-2">
-									<button
-										onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
-										disabled={isSubmittingReply}
-										class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-									>
-										{$t('dashboard.delete_cancel')}
-									</button>
-									<button
-										onclick={() => submitReply(msg)}
-										disabled={isSubmittingReply || !replyText.trim()}
-										class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
-									>
-										{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
-									</button>
-								</div>
-							</div>
-						{/snippet}
-					{/if}
-					{#snippet answerActions()}
-						{#if data.tab === 'answered'}
-							<button
-								onclick={() => confirmDelete(msg.id, 'answer')}
-								class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-							>
-								{$t('dashboard.delete_answer')}
-							</button>
-						{/if}
-					{/snippet}
-				</QACard>
-			{/each}
-		</div>
-
-		<!-- ページネーション -->
-		{#if data.messages.length === 20}
-			<div class="mt-6 text-center">
-				<a href="?tab={data.tab}&page={data.page + 1}" class="text-sm text-primary-400 hover:underline">
-					次のページ →
-				</a>
+	<div class="relative">
+		{#if navigating.to}
+			<div class="absolute inset-0 z-10 flex justify-center rounded-xl bg-slate-950/60 pt-16">
+				<div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
 			</div>
 		{/if}
-	{/if}
+			{#if data.messages.length === 0}
+			<div class="text-center py-16 text-slate-600">
+				<p class="text-4xl mb-3">📭</p>
+				<p class="font-medium">
+					{data.tab === 'answered'
+						? $t('dashboard.empty_answered')
+						: data.tab === 'read'
+							? $t('dashboard.empty_read')
+							: data.tab === 'sent'
+								? $t('dashboard.empty_sent')
+								: $t('dashboard.empty_unread')}
+				</p>
+			</div>
+		{:else}
+			<div class="space-y-3">
+				{#each data.messages as msg (msg.id)}
+					<QACard
+						body={msg.body}
+						sender={data.tab === 'sent' ? msg.creator : msg.sender}
+						senderHref={data.tab === 'sent'
+							? msg.creator
+								? `/u/${msg.creator.handle}`
+								: undefined
+							: msg.sender
+								? `/u/${msg.sender.handle}`
+								: undefined}
+						imageUrls={msg.imageUrls}
+						createdAt={msg.createdAt}
+						answer={data.tab === 'unread' || data.tab === 'read' ? null : msg.answer}
+						answeredAt={data.tab === 'unread' || data.tab === 'read' ? undefined : msg.answeredAt}
+						answererLabel={$t('dashboard.your_answer')}
+						unread={data.tab === 'sent' ? false : !msg.isRead}
+						expandedPaneOpen={(data.tab === 'unread' || data.tab === 'read') && replyingTo === msg.id}
+					>
+						{#snippet questionActions()}
+							{#if data.tab === 'unread' || data.tab === 'read'}
+								{#if !msg.isRead}
+									<button
+										onclick={() => markRead(msg.id)}
+										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+									>
+										{$t('dashboard.mark_read')}
+									</button>
+								{:else}
+									<button
+										onclick={() => markUnread(msg.id)}
+										class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+									>
+										{$t('dashboard.mark_unread')}
+									</button>
+								{/if}
+								<button
+									onclick={() => { replyingTo = replyingTo === msg.id ? null : msg.id; replyText = ''; replyError = null; }}
+									class="text-xs bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+								>
+									{$t('dashboard.answer_button')}
+								</button>
+								<button
+									onclick={() => confirmDelete(msg.id, 'message')}
+									class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+								>
+									{$t('dashboard.hide_question')}
+								</button>
+							{:else if data.tab === 'sent'}
+								<button
+									onclick={() => confirmDelete(msg.id, 'question')}
+									class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+								>
+									{$t('dashboard.delete_question')}
+								</button>
+							{/if}
+						{/snippet}
+						{#snippet expandedPane()}
+							{#if replyingTo === msg.id}
+								{#if replyError}
+									<p class="mb-3 text-sm text-red-400 bg-red-950/50 rounded-lg px-3 py-2 border border-red-900/50">{replyError}</p>
+								{/if}
+								<textarea
+									bind:value={replyText}
+									placeholder={$t('dashboard.answer_placeholder')}
+									rows="4"
+									class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+								></textarea>
+								<div class="flex items-center justify-between">
+									<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
+										{replyText.length} / {MAX_CHARS}
+									</p>
+									<div class="flex gap-2">
+										<button
+											onclick={() => { replyingTo = null; replyText = ''; replyError = null; }}
+											disabled={isSubmittingReply}
+											class="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+										>
+											{$t('dashboard.delete_cancel')}
+										</button>
+										<button
+											onclick={() => submitReply(msg)}
+											disabled={isSubmittingReply || !replyText.trim()}
+											class="text-xs bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-medium px-4 py-1.5 rounded-lg transition-colors"
+										>
+											{isSubmittingReply ? $t('dashboard.answer_sending') : $t('dashboard.submit_answer')}
+										</button>
+									</div>
+								</div>
+							{/if}
+						{/snippet}
+						{#snippet answerActions()}
+							{#if data.tab === 'answered'}
+								<button
+									onclick={() => confirmDelete(msg.id, 'answer')}
+									class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+								>
+									{$t('dashboard.delete_answer')}
+								</button>
+							{/if}
+						{/snippet}
+					</QACard>
+				{/each}
+			</div>
+
+			<!-- ページネーション -->
+			{#if data.messages.length === 20}
+				<div class="mt-6 text-center">
+					<a href="?tab={data.tab}&page={data.page + 1}" class="text-sm text-primary-400 hover:underline">
+						次のページ →
+					</a>
+				</div>
+			{/if}
+		{/if}
+	</div>
 </div>
 
 <!-- 削除確認モーダル -->
