@@ -114,6 +114,7 @@
 	"box.view_more": "View more",
 	"landing.hero_title": "A Bluesky message box for short notes, long thoughts, and images",
 	"landing.hero_sub": "MeyasuAt is an AT Protocol message box for receiving anonymous messages without requiring senders to sign in. People can send quick notes, longer thoughts, and image-backed messages.",
+	"landing.features_title": "Features",
 	"landing.feature1": "Your own message box",
 	"landing.feature2": "Anonymous or named questions",
 	"landing.feature3": "Long messages welcome",

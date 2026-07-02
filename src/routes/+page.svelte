@@ -98,52 +98,6 @@
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}
 	</p>
-	<div class="mx-auto mb-4 grid max-w-3xl grid-cols-2 gap-3 text-left text-sm text-slate-100 md:gap-4 md:text-base">
-		{#each features as feature}
-			<span class="flex min-h-15 items-center gap-3 rounded-xl border border-slate-600/80 bg-slate-900/85 px-4 py-3 shadow-sm md:min-h-16 md:gap-3.5">
-				<span class={`grid size-8 shrink-0 place-items-center rounded-md ${feature.iconClass}`}>
-					{#if feature.icon === 'inbox'}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<path d="M22 12h-6l-2 3h-4l-2-3H2" />
-							<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-						</svg>
-					{:else if feature.icon === 'user'}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<path d="M20 21a8 8 0 0 0-16 0" />
-							<circle cx="12" cy="7" r="4" />
-						</svg>
-					{:else if feature.icon === 'text'}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<path d="M17 6.1H3" />
-							<path d="M21 12.1H3" />
-							<path d="M15.1 18H3" />
-						</svg>
-					{:else if feature.icon === 'image'}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-							<circle cx="9" cy="9" r="2" />
-							<path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
-						</svg>
-					{:else if feature.icon === 'bell'}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<path d="M10.3 21a2 2 0 0 0 3.4 0" />
-							<path d="M18 8A6 6 0 0 0 6 8c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-						</svg>
-					{:else}
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-							<ellipse cx="12" cy="5" rx="9" ry="3" />
-							<path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
-							<path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" />
-						</svg>
-					{/if}
-				</span>
-				<span class="leading-snug font-medium">{$t(feature.key)}</span>
-			</span>
-		{/each}
-	</div>
-	<p class="mb-8 text-xs text-slate-500">
-		{$t('landing.feature_note')}
-	</p>
 	{#if data.user}
 		<a
 			href="/dashboard"
@@ -224,6 +178,59 @@
 		>
 			{$t('about.link')}
 		</button>
+	</p>
+</section>
+
+<!-- 特徴 -->
+<section class="max-w-3xl mx-auto px-4 py-16">
+	<h2 class="text-xl font-bold text-slate-200 text-center mb-10">
+		{$t('landing.features_title')}
+	</h2>
+	<div class="mx-auto grid max-w-3xl grid-cols-2 gap-3 text-left text-sm text-slate-100 md:gap-4 md:text-base">
+		{#each features as feature}
+			<span class="flex min-h-15 items-center gap-3 rounded-xl border border-slate-600/80 bg-slate-900/85 px-4 py-3 shadow-sm md:min-h-16 md:gap-3.5">
+				<span class={`grid size-8 shrink-0 place-items-center rounded-md ${feature.iconClass}`}>
+					{#if feature.icon === 'inbox'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M22 12h-6l-2 3h-4l-2-3H2" />
+							<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+						</svg>
+					{:else if feature.icon === 'user'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M20 21a8 8 0 0 0-16 0" />
+							<circle cx="12" cy="7" r="4" />
+						</svg>
+					{:else if feature.icon === 'text'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M17 6.1H3" />
+							<path d="M21 12.1H3" />
+							<path d="M15.1 18H3" />
+						</svg>
+					{:else if feature.icon === 'image'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+							<circle cx="9" cy="9" r="2" />
+							<path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+						</svg>
+					{:else if feature.icon === 'bell'}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<path d="M10.3 21a2 2 0 0 0 3.4 0" />
+							<path d="M18 8A6 6 0 0 0 6 8c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+						</svg>
+					{:else}
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+							<ellipse cx="12" cy="5" rx="9" ry="3" />
+							<path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+							<path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" />
+						</svg>
+					{/if}
+				</span>
+				<span class="leading-snug font-medium">{$t(feature.key)}</span>
+			</span>
+		{/each}
+	</div>
+	<p class="mt-4 text-center text-xs text-slate-500">
+		{$t('landing.feature_note')}
 	</p>
 </section>
 
