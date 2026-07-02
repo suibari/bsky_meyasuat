@@ -75,6 +75,13 @@
 		{ key: 'landing.feature5', descKey: 'landing.feature5_desc', icon: 'bell', iconClass: 'bg-violet-950 text-violet-300 ring-1 ring-violet-800/70' },
 		{ key: 'landing.feature6', descKey: 'landing.feature6_desc', icon: 'database', iconClass: 'bg-teal-950 text-teal-300 ring-1 ring-teal-800/70' }
 	];
+
+	const heroHighlights = [
+		'landing.hero_highlight_long',
+		'landing.hero_highlight_images',
+		'landing.hero_highlight_notify',
+		'landing.hero_highlight_atproto'
+	];
 </script>
 
 <svelte:head>
@@ -105,6 +112,13 @@
 	<p class="text-slate-400 mb-8 max-w-lg mx-auto">
 		{$t('landing.hero_sub')}
 	</p>
+	<ul class="mx-auto mb-8 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+		{#each heroHighlights as highlight}
+			<li class="rounded-full border border-accent-500/40 bg-accent-500/10 px-3 py-1.5 text-sm font-semibold text-accent-400 shadow-sm shadow-accent-950/20">
+				{$t(highlight)}
+			</li>
+		{/each}
+	</ul>
 	{#if data.user}
 		<a
 			href="/dashboard"
