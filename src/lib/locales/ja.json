@@ -1,6 +1,6 @@
 {
 	"app.name": "めやすあっと",
-	"app.tagline": "ひとことも、長文も、画像も届く Bluesky のめやすばこ",
+	"app.tagline": "ひとことも、長文も、画像も届く Bluesky の質問箱",
 	"app.description": "Blueskyユーザー向けに、匿名で長文や画像つきメッセージを届けられるサービスです",
 	"nav.signin": "はじめる",
 	"nav.signout": "ログアウト",
@@ -114,7 +114,6 @@
 	"message.share_button": "シェアする",
 	"box.answered_qa_title": "回答済みの質問",
 	"box.view_more": "もっと見る",
-	"landing.hero_title": "ひとことも、長文も、画像も届く Bluesky のめやすばこ",
 	"landing.hero_sub": "匿名メッセージを募集できる ATprotocol の質問箱",
 	"landing.hero_highlight_long": "長文で送れる",
 	"landing.hero_highlight_images": "画像も送れる",
