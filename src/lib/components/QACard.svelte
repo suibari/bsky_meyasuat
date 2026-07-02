@@ -4,6 +4,9 @@
 
 	type Person = { avatarUrl: string | null; displayName: string | null; handle: string };
 
+	const COLLAPSE_CHAR_THRESHOLD = 300;
+	const COLLAPSE_NEWLINE_THRESHOLD = 5;
+
 	let {
 		body,
 		answer = null,
@@ -56,12 +59,27 @@
 		});
 	}
 
+	function isLongText(text: string | null | undefined): boolean {
+		if (!text) return false;
+		const newlineCount = (text.match(/\n/g) ?? []).length;
+		return text.length > COLLAPSE_CHAR_THRESHOLD || newlineCount > COLLAPSE_NEWLINE_THRESHOLD;
+	}
+
 	const displayBody = $derived(truncateLength ? truncate(body, truncateLength) : body);
 	const displayAnswer = $derived(
 		answer && truncateLength ? truncate(answer, truncateLength) : answer
 	);
 	let failedImageUrls = $state<string[]>([]);
 	const hasExpiredImages = $derived(failedImageUrls.length > 0);
+
+	let bodyCollapsed = $state(true);
+	let answerCollapsed = $state(true);
+
+	const canCollapse = $derived(!href);
+	const isBodyLong = $derived(canCollapse && isLongText(body));
+	const isAnswerLong = $derived(canCollapse && isLongText(answer));
+	const bodyClamped = $derived(isBodyLong && bodyCollapsed);
+	const answerClamped = $derived(isAnswerLong && answerCollapsed);
 
 	function markImageFailed(url: string): void {
 		if (failedImageUrls.includes(url)) return;
@@ -118,7 +136,16 @@
 			{#if sender}
 				{@render personRow(sender, senderHref)}
 			{/if}
-			<p class="text-slate-200 leading-relaxed whitespace-pre-wrap">{displayBody}</p>
+			<p class="text-slate-200 leading-relaxed whitespace-pre-wrap {bodyClamped ? 'line-clamp-8' : ''}">{displayBody}</p>
+			{#if isBodyLong}
+				<button
+					type="button"
+					onclick={() => (bodyCollapsed = !bodyCollapsed)}
+					class="mt-1 text-xs font-medium text-primary-400 hover:text-primary-300 transition-colors"
+				>
+					{bodyCollapsed ? $t('message.read_more') : $t('message.show_less')}
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -165,9 +192,18 @@
 		{:else if answererLabel}
 			<p class="text-xs font-medium text-primary-400 mb-1">{answererLabel}</p>
 		{/if}
-		<p class="text-primary-300 leading-relaxed whitespace-pre-wrap">
+		<p class="text-primary-300 leading-relaxed whitespace-pre-wrap {answerClamped ? 'line-clamp-8' : ''}">
 			{#if !creator && !answererLabel}A: {/if}{displayAnswer}
 		</p>
+		{#if isAnswerLong}
+			<button
+				type="button"
+				onclick={() => (answerCollapsed = !answerCollapsed)}
+				class="mt-1 text-xs font-medium text-primary-400 hover:text-primary-300 transition-colors"
+			>
+				{answerCollapsed ? $t('message.read_more') : $t('message.show_less')}
+			</button>
+		{/if}
 		{#if answeredAt}
 			<p class="mt-4 text-xs text-slate-600">
 				{$t('message.answered_at', { values: { date: formatDate(answeredAt) } })}

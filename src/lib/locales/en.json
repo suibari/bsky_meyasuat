@@ -112,6 +112,8 @@
 	"message.images_expired": "Images were deleted after the retention period (90 days).",
 	"message.no_answer_yet": "Not answered yet",
 	"message.share_button": "Share",
+	"message.read_more": "Read more",
+	"message.show_less": "Show less",
 	"box.answered_qa_title": "Answered questions",
 	"box.view_more": "View more",
 	"landing.hero_sub": "An AT Protocol question box for collecting anonymous messages",

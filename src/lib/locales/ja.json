@@ -112,6 +112,8 @@
 	"message.images_expired": "画像は保持期間（90日）経過により削除されました。",
 	"message.no_answer_yet": "まだ回答されていません",
 	"message.share_button": "シェアする",
+	"message.read_more": "続きを読む",
+	"message.show_less": "折りたたむ",
 	"box.answered_qa_title": "回答済みの質問",
 	"box.view_more": "もっと見る",
 	"landing.hero_sub": "匿名メッセージを募集できる ATprotocol の質問箱",
