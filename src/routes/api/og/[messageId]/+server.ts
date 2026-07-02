@@ -40,7 +40,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
 	// 記名メッセージは上段に送信者バッジが入り使えるスペースが狭くなるため、
 	// 質問文の最大長を短くしてフォントが小さくなりすぎないようにする
-	const bodyLimit = sender ? 110 : 140;
+	const bodyLimit = sender ? 150 : 190;
 	const body =
 		message.body.length > bodyLimit ? message.body.slice(0, bodyLimit) + '…' : message.body;
 	const creatorName = creator?.displayName?.trim() || creator?.handle || 'unknown';

@@ -106,7 +106,7 @@ export function buildAvatarNode(
 export function buildQuestionNode(body: string, hasHeader = false) {
 	const len = body.length;
 	const fontSize = hasHeader
-		? (len <= 30 ? 56 : len <= 60 ? 40 : len <= 100 ? 32 : 24)
+		? (len <= 30 ? 56 : len <= 60 ? 40 : len <= 100 ? 32 : 30)
 		: (len <= 30 ? 64 : len <= 60 ? 48 : len <= 100 ? 36 : 28);
 	return {
 		type: 'div',
