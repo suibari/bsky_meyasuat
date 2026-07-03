@@ -6,6 +6,7 @@
 	import type { PageData, ActionData } from './$types';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { deleteAllRecordsInCollection } from '$lib/client/oauthClient.js';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -198,7 +199,7 @@
 				class="flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white px-4 py-2 rounded-lg transition-colors"
 			>
 				{#if deleting}
-					<span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+					<Spinner />
 					{$t('settings.delete_box_deleting')}
 				{:else}
 					{$t('settings.delete_box_button')}

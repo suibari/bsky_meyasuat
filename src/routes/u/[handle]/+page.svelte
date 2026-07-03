@@ -211,7 +211,7 @@
 					bind:value={body}
 					placeholder={$t('submit.body_placeholder')}
 					rows="5"
-					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
 				></textarea>
 				<p class="text-right text-xs text-slate-400 mt-1" class:text-red-500={body.length > MAX_CHARS}>
 					{body.length} / {MAX_CHARS}

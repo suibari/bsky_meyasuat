@@ -4,6 +4,7 @@
 	import { navigating } from '$app/state';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { deleteRecordOnPds } from '$lib/client/oauthClient.js';
 	import { ogImageUrl, pageShareUrl } from '$lib/utils/share.js';
 	import type { PageData } from './$types';
@@ -20,6 +21,7 @@
 	let isSubmittingReply = $state(false);
 	let replyError = $state<string | null>(null);
 	let deleteError = $state<string | null>(null);
+	let isDeleting = $state(false);
 
 	const MAX_CHARS = 10000;
 
@@ -133,6 +135,7 @@
 	}
 
 	function cancelDelete() {
+		if (isDeleting) return;
 		deleteTargetId = null;
 		deleteError = null;
 	}
@@ -144,7 +147,7 @@
 	}
 
 	async function executeDelete() {
-		if (!deleteTargetId) return;
+		if (!deleteTargetId || isDeleting) return;
 		deleteError = null;
 		const target = data.messages.find((m) => m.id === deleteTargetId);
 		if (!target) {
@@ -152,6 +155,7 @@
 			return;
 		}
 
+		isDeleting = true;
 		try {
 			if (deleteTargetType === 'question') {
 				await deleteQuestionOnPds(target);
@@ -177,6 +181,8 @@
 		} catch (e) {
 			deleteError = $t('dashboard.delete_error');
 			return;
+		} finally {
+			isDeleting = false;
 		}
 
 		deleteTargetId = null;
@@ -184,6 +190,7 @@
 	}
 
 	function onDialogClick(e: MouseEvent) {
+		if (isDeleting) return;
 		if ((e.target as HTMLElement).tagName === 'DIALOG') cancelDelete();
 	}
 </script>
@@ -353,7 +360,7 @@
 									bind:value={replyText}
 									placeholder={$t('dashboard.answer_placeholder')}
 									rows="4"
-									class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none mb-2"
+									class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y mb-2"
 								></textarea>
 								<div class="flex items-center justify-between">
 									<p class="text-xs text-slate-500" class:text-red-500={replyText.length > MAX_CHARS}>
@@ -433,19 +440,26 @@
 		<div class="flex justify-end gap-2">
 			<button
 				onclick={cancelDelete}
-				class="text-sm text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg transition-colors"
+				disabled={isDeleting}
+				class="text-sm text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
 			>
 				{$t('dashboard.delete_cancel')}
 			</button>
 			<button
 				onclick={executeDelete}
-				class="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+				disabled={isDeleting}
+				class="flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white px-4 py-2 rounded-lg transition-colors"
 			>
-				{deleteTargetType === 'question'
-					? $t('dashboard.delete_question')
-					: deleteTargetType === 'answer'
-						? $t('dashboard.delete_answer')
-						: $t('dashboard.hide_question')}
+				{#if isDeleting}
+					<Spinner />
+					{$t('dashboard.deleting')}
+				{:else}
+					{deleteTargetType === 'question'
+						? $t('dashboard.delete_question')
+						: deleteTargetType === 'answer'
+							? $t('dashboard.delete_answer')
+							: $t('dashboard.hide_question')}
+				{/if}
 			</button>
 		</div>
 	</div>

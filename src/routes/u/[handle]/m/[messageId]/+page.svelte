@@ -4,6 +4,7 @@
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { deleteRecordOnPds } from '$lib/client/oauthClient.js';
 	import type { PageData } from './$types';
 
@@ -175,9 +176,14 @@
 				<button
 					onclick={deleteAnswer}
 					disabled={deletingAnswer}
-					class="shrink-0 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium px-4 py-3 rounded-xl transition-colors text-sm"
+					class="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white font-medium px-4 py-3 rounded-xl transition-colors text-sm"
 				>
-					{$t('dashboard.delete_answer')}
+					{#if deletingAnswer}
+						<Spinner />
+						{$t('dashboard.deleting')}
+					{:else}
+						{$t('dashboard.delete_answer')}
+					{/if}
 				</button>
 			</div>
 		{/if}
@@ -194,7 +200,7 @@
 				bind:value={answerText}
 				placeholder={$t('message.answer_placeholder')}
 				rows="5"
-				class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+				class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
 			></textarea>
 			<p class="text-right text-xs text-slate-400 mt-1" class:text-red-500={answerText.length > MAX_CHARS}>
 				{answerText.length} / {MAX_CHARS}

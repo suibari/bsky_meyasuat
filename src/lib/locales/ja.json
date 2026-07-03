@@ -68,6 +68,7 @@
 	"dashboard.delete_error.pds_conflict": "PDS上のレコードがまだ残っています。少し待ってからもう一度お試しください。",
 	"dashboard.delete_error.pds_verify_failed": "PDSの確認に失敗しました。時間をおいてもう一度お試しください。",
 	"dashboard.delete_cancel": "キャンセル",
+	"dashboard.deleting": "削除しています…",
 	"dashboard.your_url": "あなたの{box} URL",
 	"dashboard.copy": "コピー",
 	"dashboard.copied": "コピーしました",
