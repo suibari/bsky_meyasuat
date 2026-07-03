@@ -137,7 +137,10 @@
 			if (res.status === 507) { errorMsg = $t('submit.error.storage_limit'); return; }
 			if (!res.ok) {
 				const reason = await res.json().catch(() => null) as { message?: string } | null;
-				errorMsg = reason?.message === 'Message too long' ? $t('submit.error.too_long') : $t('submit.error.server');
+				errorMsg =
+					reason?.message === 'Message too long' ? $t('submit.error.too_long') :
+					reason?.message === 'Content flagged by moderation' ? $t('submit.error.moderation') :
+					$t('submit.error.server');
 				return;
 			}
 

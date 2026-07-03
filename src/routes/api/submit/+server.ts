@@ -4,6 +4,7 @@ import { getUserByDid, createMessage, checkRateLimit, logRateLimit, PostgrestErr
 import { uploadToR2, messageImageKey, getTotalR2Bytes } from '$lib/server/r2.js';
 import { verifyTurnstile } from '$lib/server/turnstile.js';
 import { notifyCreator } from '$lib/server/bot.js';
+import { checkModeration } from '$lib/server/moderation.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1時間
 const RATE_LIMIT_MAX = 5;
@@ -62,6 +63,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		preparedImages.push({ buf, contentType: file.type, ext });
 		incomingTotalBytes += buf.byteLength;
 	}
+
+	// コンテンツモデレーション (OpenAI Moderation API, フェイルオープン)
+	const flagged = await checkModeration(env.OPENAI_API_KEY, body, preparedImages);
+	if (flagged) error(400, 'Content flagged by moderation');
 
 	if (!prefersPdsImages && incomingTotalBytes > 0) {
 		const currentTotalBytes = await getTotalR2Bytes(env);

@@ -32,6 +32,7 @@
 	"submit.error.storage_limit": "現在画像の保存容量が上限に達しているため送信できません。時間をおいて再度お試しください。",
 	"submit.error.turnstile": "認証に失敗しました。もう一度お試しください",
 	"submit.error.rate_limit": "しばらく時間をおいてから再度送信してください",
+	"submit.error.moderation": "このメッセージは不適切な内容を含む可能性があるため送信できませんでした",
 	"submit.error.server": "サーバーエラーが発生しました",
 	"submit.char_count": "{count} / 10000",
 	"dashboard.title": "めやすばこ",

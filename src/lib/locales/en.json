@@ -32,6 +32,7 @@
 	"submit.error.storage_limit": "Image storage is currently at capacity. Please try again later.",
 	"submit.error.turnstile": "Verification failed. Please try again.",
 	"submit.error.rate_limit": "Too many messages. Please wait before sending again.",
+	"submit.error.moderation": "This message could not be sent because it may contain inappropriate content.",
 	"submit.error.server": "A server error occurred",
 	"submit.char_count": "{count} / 10000",
 	"dashboard.title": "Meyasubako",
