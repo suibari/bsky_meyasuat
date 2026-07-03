@@ -15,6 +15,17 @@ export async function notifyCreator(
 		password: env.BOT_APP_PASSWORD
 	});
 
+	try {
+		const profile = await agent.getProfile({ actor: creatorDid });
+		if (!profile.data.viewer?.followedBy) return;
+	} catch (e) {
+		console.warn('[bot] skipped notification because follow state could not be verified', {
+			creatorDid,
+			error: e instanceof Error ? e.message : String(e)
+		});
+		return;
+	}
+
 	const appUrl = env.PUBLIC_APP_URL;
 	const msgUrl = `${appUrl}/u/${creatorHandle}/m/${messageId}`;
 	const boxName = creatorBoxName?.trim() || 'めやすばこ';
