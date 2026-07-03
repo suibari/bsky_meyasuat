@@ -53,6 +53,7 @@ export const POST: RequestHandler = async ({ request, platform, url }) => {
 	// 募集者存在確認
 	const creator = await getUserByDid(env, creatorDid);
 	if (!creator) error(404, 'Creator not found');
+	if (creator.requireNamedEnabled && !senderDid) error(401, 'Sign-in required');
 
 	const preparedImages: Array<{ buf: ArrayBuffer; contentType: string; ext: string }> = [];
 	let incomingTotalBytes = 0;

@@ -19,7 +19,7 @@
 	let submitting = $state(false);
 	let success = $state(false);
 	let errorMsg = $state('');
-	let shareHandle = $state(data.user?.shareHandleEnabled ?? false);
+	let shareHandle = $state(data.creator.requireNamedEnabled ? true : (data.user?.shareHandleEnabled ?? false));
 
 	async function onShareHandleChange() {
 		await fetch('/api/prefs/share-handle', {
@@ -140,6 +140,7 @@
 				errorMsg =
 					reason?.message === 'Message too long' ? $t('submit.error.too_long') :
 					reason?.message === 'Content flagged by moderation' ? $t('submit.error.moderation') :
+					reason?.message === 'Sign-in required' ? $t('submit.error.signin_required') :
 					$t('submit.error.server');
 				return;
 			}
@@ -212,7 +213,7 @@
 				<textarea
 					id="body"
 					bind:value={body}
-					placeholder={$t('submit.body_placeholder')}
+					placeholder={data.creator.requireNamedEnabled ? $t('submit.body_placeholder_named_required') : $t('submit.body_placeholder')}
 					rows="5"
 					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
 				></textarea>
@@ -248,8 +249,10 @@
 			<div class="mb-4">
 				<p class="text-sm font-medium text-slate-300 mb-2">{$t('submit.named_label')}</p>
 				{#if !data.user}
-					<p class="text-xs text-slate-400 mb-2">
-						{$t('submit.named_signin_description', { values: { name: creatorName } })}
+					<p class="text-xs mb-2" class:text-amber-400={data.creator.requireNamedEnabled} class:text-slate-400={!data.creator.requireNamedEnabled}>
+						{data.creator.requireNamedEnabled
+							? $t('submit.named_required_notice', { values: { name: creatorName } })
+							: $t('submit.named_signin_description', { values: { name: creatorName } })}
 					</p>
 					<a
 						href={`/?redirect_to=${encodeURIComponent(page.url.pathname)}#landing-handle`}
@@ -262,8 +265,11 @@
 						<span class="text-sm text-slate-300">
 							{$t('submit.named_checkbox', { values: { name: creatorName } })}
 						</span>
-						<ToggleSwitch bind:checked={shareHandle} onchange={onShareHandleChange} />
+						<ToggleSwitch bind:checked={shareHandle} onchange={onShareHandleChange} disabled={data.creator.requireNamedEnabled} />
 					</label>
+					{#if data.creator.requireNamedEnabled}
+						<p class="text-xs text-slate-500 mt-1.5">{$t('submit.named_required_fixed_note')}</p>
+					{/if}
 				{/if}
 			</div>
 
@@ -280,7 +286,7 @@
 
 			<button
 				onclick={submit}
-				disabled={submitting || (data.turnstileEnabled && !turnstileToken)}
+				disabled={submitting || (data.turnstileEnabled && !turnstileToken) || (data.creator.requireNamedEnabled && !data.user)}
 				class="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
 			>
 				{submitting ? $t('submit.sending') : $t('submit.button')}

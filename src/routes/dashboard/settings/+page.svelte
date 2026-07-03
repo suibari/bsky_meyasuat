@@ -21,6 +21,16 @@
 	let notifySaving = $state(false);
 	let lastSavedNotifyEnabled = initialNotifyEnabled();
 
+	function initialRequireNamedEnabled() {
+		return data.user.requireNamedEnabled;
+	}
+
+	let requireNamedForm: HTMLFormElement;
+	let requireNamedEnabled = $state(initialRequireNamedEnabled());
+	let requireNamedSaving = $state(false);
+	let requireNamedError = $state('');
+	let lastSavedRequireNamedEnabled = initialRequireNamedEnabled();
+
 	let showDeleteModal = $state(false);
 	let deleting = $state(false);
 	let deleteError = $state('');
@@ -111,6 +121,28 @@
 		if (notifySaving) return;
 		notifyForm.requestSubmit();
 	}
+
+	const handleRequireNamedSubmit: SubmitFunction = ({ formData }) => {
+		requireNamedError = '';
+		const enabling = formData.get('require_named_enabled') === 'on';
+		const previous = lastSavedRequireNamedEnabled;
+		requireNamedSaving = true;
+
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				lastSavedRequireNamedEnabled = enabling;
+			} else {
+				requireNamedEnabled = previous;
+				requireNamedError = $t('settings.require_named_save_error');
+			}
+			requireNamedSaving = false;
+		};
+	};
+
+	function onRequireNamedChange() {
+		if (requireNamedSaving) return;
+		requireNamedForm.requestSubmit();
+	}
 </script>
 
 <svelte:head>
@@ -140,6 +172,28 @@
 			<button type="submit" class="mt-4 text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
 				{$t('settings.save')}
 			</button>
+		</form>
+	</section>
+
+	<!-- 記名必須化 -->
+	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
+		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.require_named')}</h2>
+		<form method="POST" action="?/saveRequireNamed" bind:this={requireNamedForm} use:enhance={handleRequireNamedSubmit}>
+			<label class="flex items-center justify-between gap-3 cursor-pointer">
+				<div>
+					<p class="text-sm font-medium text-slate-300">{$t('settings.require_named_enabled')}</p>
+					<p class="text-xs text-slate-400 mt-0.5">{$t('settings.require_named_description')}</p>
+				</div>
+				<div class="flex items-center gap-2">
+					{#if requireNamedSaving}
+						<Spinner />
+					{/if}
+					<ToggleSwitch name="require_named_enabled" bind:checked={requireNamedEnabled} disabled={requireNamedSaving} onchange={onRequireNamedChange} />
+				</div>
+			</label>
+			{#if requireNamedError}
+				<p class="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{requireNamedError}</p>
+			{/if}
 		</form>
 	</section>
 

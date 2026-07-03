@@ -14,6 +14,7 @@ declare global {
 				avatarUrl: string | null;
 				notifyEnabled: boolean;
 				shareHandleEnabled: boolean;
+				requireNamedEnabled: boolean;
 				boxName: string | null;
 			} | null;
 			sessionId: string | null;

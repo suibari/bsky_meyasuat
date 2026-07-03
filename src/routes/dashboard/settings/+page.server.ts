@@ -23,6 +23,14 @@ export const actions: Actions = {
 		await updateUser(env, locals.user.did, { notifyEnabled });
 		return { saved: true };
 	},
+	saveRequireNamed: async ({ locals, request, platform }) => {
+		const env = platform?.env;
+		if (!locals.user || !env) return fail(401);
+		const fd = await request.formData();
+		const requireNamedEnabled = fd.get('require_named_enabled') === 'on';
+		await updateUser(env, locals.user.did, { requireNamedEnabled });
+		return { saved: true };
+	},
 	saveBoxName: async ({ locals, request, platform }) => {
 		const env = platform?.env;
 		if (!locals.user || !env) return fail(401);
