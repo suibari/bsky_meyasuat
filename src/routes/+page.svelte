@@ -293,6 +293,15 @@
 				</li>
 				<li>{$t('about.notice2')}</li>
 				<li>{$t('about.notice3')}</li>
+				<li>
+					<div class="font-bold text-slate-300">{$t('about.storage_heading')}</div>
+					<ul class="mt-1 space-y-1 pl-3">
+						<li>・{$t('about.storage_anonymous_guest')}</li>
+						<li>・{$t('about.storage_anonymous_signed_in')}</li>
+						<li>・{$t('about.storage_named_signed_in')}</li>
+						<li>・{$t('about.storage_answer')}</li>
+					</ul>
+				</li>
 				<li>{$t('about.notice_conduct')}</li>
 				<li>{$t('about.notice5')}</li>
 				<li>{$t('about.disclaimer')}</li>
