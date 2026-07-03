@@ -37,6 +37,10 @@ export async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; ki
 
 let iconCache: string | null = null;
 
+function truncateText(text: string, maxLength: number): string {
+	return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
 export async function loadIcon(appUrl: string): Promise<string> {
 	if (iconCache) return iconCache;
 	const res = await fetch(`${appUrl}/icon_meyasuat_cyan.png`);
@@ -144,6 +148,8 @@ export function buildMessageOgSvgNode({
 	creatorAvatarDataUri: string | null;
 	icon: string;
 }) {
+	const displayCreatorName = truncateText(creatorName, 18);
+	const displayBoxName = truncateText(boxName, 14);
 	const headerNode = sender
 		? {
 				type: 'div',
@@ -203,7 +209,13 @@ export function buildMessageOgSvgNode({
 							{
 								type: 'div',
 								props: {
-									style: { display: 'flex', alignItems: 'center', gap: '16px' },
+									style: {
+										display: 'flex',
+										alignItems: 'center',
+										gap: '16px',
+										width: '620px',
+										flexShrink: 1
+									},
 									children: [
 										buildAvatarNode(creatorAvatarDataUri, creatorName, 48),
 										{
@@ -212,9 +224,10 @@ export function buildMessageOgSvgNode({
 												style: {
 													fontSize: '24px',
 													color: '#64748b',
-													fontFamily: '"Noto Sans JP"'
+													fontFamily: '"Noto Sans JP"',
+													flexShrink: 1
 												},
-												children: `${creatorName} の ${boxName}`
+												children: `${displayCreatorName} の ${displayBoxName}`
 											}
 										}
 									]
@@ -223,7 +236,7 @@ export function buildMessageOgSvgNode({
 							{
 								type: 'div',
 								props: {
-									style: { display: 'flex', alignItems: 'center', gap: '12px' },
+									style: { display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 },
 									children: [
 										{ type: 'img', props: { src: icon, width: 52, height: 52 } },
 										{
@@ -286,6 +299,9 @@ export function buildUserOgSvgNode({
 	avatarDataUri: string | null;
 	icon: string;
 }) {
+	const displayName = truncateText(name, 16);
+	const displayHandle = truncateText(handle, 30);
+	const displayBoxName = truncateText(boxName, 14);
 	const avatarNode = avatarDataUri
 		? {
 				type: 'img',
@@ -320,7 +336,7 @@ export function buildUserOgSvgNode({
 							color: '#0369a1',
 							fontFamily: '"KillGothic"'
 						},
-						children: `${name} の ${boxName}`
+						children: `${displayName} の ${displayBoxName}`
 					}
 				},
 				{
@@ -354,14 +370,16 @@ export function buildUserOgSvgNode({
 									style: {
 										display: 'flex',
 										alignItems: 'center',
-										gap: '24px'
+										gap: '24px',
+										width: '620px',
+										flexShrink: 1
 									},
 									children: [
 										avatarNode,
 										{
 											type: 'div',
 											props: {
-												style: { display: 'flex', flexDirection: 'column' },
+												style: { display: 'flex', flexDirection: 'column', flexShrink: 1 },
 												children: [
 													{
 														type: 'div',
@@ -369,9 +387,10 @@ export function buildUserOgSvgNode({
 															style: {
 																fontSize: '40px',
 																fontWeight: 700,
-																color: '#0f172a'
+																color: '#0f172a',
+																flexShrink: 1
 															},
-															children: name
+															children: displayName
 														}
 													},
 													{
@@ -380,9 +399,10 @@ export function buildUserOgSvgNode({
 															style: {
 																fontSize: '24px',
 																color: '#64748b',
-																marginTop: '8px'
+																marginTop: '8px',
+																flexShrink: 1
 															},
-															children: `@${handle}`
+															children: `@${displayHandle}`
 														}
 													}
 												]
@@ -394,7 +414,7 @@ export function buildUserOgSvgNode({
 							{
 								type: 'div',
 								props: {
-									style: { display: 'flex', alignItems: 'center', gap: '16px' },
+									style: { display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 },
 									children: [
 										{ type: 'img', props: { src: icon, width: 72, height: 72 } },
 										{
