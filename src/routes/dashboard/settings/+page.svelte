@@ -11,7 +11,15 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	function initialNotifyEnabled() {
+		return data.user.notifyEnabled;
+	}
+
 	let followError = $state('');
+	let notifyForm: HTMLFormElement;
+	let notifyEnabled = $state(initialNotifyEnabled());
+	let notifySaving = $state(false);
+	let lastSavedNotifyEnabled = initialNotifyEnabled();
 
 	let showDeleteModal = $state(false);
 	let deleting = $state(false);
@@ -67,8 +75,10 @@
 	const handleNotifySubmit: SubmitFunction = ({ formData }) => {
 		followError = '';
 		const enabling = formData.get('notify_enabled') === 'on';
+		const previous = lastSavedNotifyEnabled;
+		notifySaving = true;
 
-		return async ({ update }) => {
+		return async ({ result }) => {
 			if (enabling && data.botDid) {
 				try {
 					const [{ createOAuthClient }, { Agent }] = await Promise.all([
@@ -86,9 +96,21 @@
 					followError = e instanceof Error ? e.message : 'Unknown error';
 				}
 			}
-			await update();
+
+			if (result.type === 'success') {
+				lastSavedNotifyEnabled = enabling;
+			} else {
+				notifyEnabled = previous;
+				followError = result.type === 'failure' ? $t('settings.notify_save_error') : 'Unknown error';
+			}
+			notifySaving = false;
 		};
 	};
+
+	function onNotifyChange() {
+		if (notifySaving) return;
+		notifyForm.requestSubmit();
+	}
 </script>
 
 <svelte:head>
@@ -124,20 +146,22 @@
 	<!-- 通知 -->
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.notifications')}</h2>
-		<form method="POST" action="?/saveNotify" use:enhance={handleNotifySubmit}>
+		<form method="POST" action="?/saveNotify" bind:this={notifyForm} use:enhance={handleNotifySubmit}>
 			<label class="flex items-center justify-between gap-3 cursor-pointer">
 				<div>
 					<p class="text-sm font-medium text-slate-300">{$t('settings.notify_enabled')}</p>
 					<p class="text-xs text-slate-400 mt-0.5">{$t('settings.notify_description')}</p>
 				</div>
-				<ToggleSwitch name="notify_enabled" checked={data.user.notifyEnabled} />
+				<div class="flex items-center gap-2">
+					{#if notifySaving}
+						<Spinner />
+					{/if}
+					<ToggleSwitch name="notify_enabled" bind:checked={notifyEnabled} disabled={notifySaving} onchange={onNotifyChange} />
+				</div>
 			</label>
 			{#if followError}
 				<p class="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{followError}</p>
 			{/if}
-			<button type="submit" class="mt-4 text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
-				{$t('settings.save')}
-			</button>
 		</form>
 	</section>
 

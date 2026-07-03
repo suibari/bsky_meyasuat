@@ -91,6 +91,7 @@
 	"settings.notifications": "Notifications",
 	"settings.notify_enabled": "Notify me on Bluesky when I receive a message",
 	"settings.notify_description": "Turning this on will automatically follow the meyasuat-atto bot. You'll receive a mention from that bot when you get a message.",
+	"settings.notify_save_error": "Failed to save notification setting. Please try again later.",
 	"settings.language": "Language",
 	"settings.theme": "Theme",
 	"settings.theme_light": "Light",

@@ -91,6 +91,7 @@
 	"settings.notifications": "通知設定",
 	"settings.notify_enabled": "新着メッセージを Bluesky でお知らせする",
 	"settings.notify_description": "ONにするとめやすあっとbotを自動でフォローします。メッセージを受けると、そのbotからメンションが来ます",
+	"settings.notify_save_error": "通知設定の保存に失敗しました。時間をおいて再度お試しください。",
 	"settings.language": "言語",
 	"settings.theme": "テーマ",
 	"settings.theme_light": "ライト",
