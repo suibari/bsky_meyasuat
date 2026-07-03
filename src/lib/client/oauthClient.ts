@@ -59,3 +59,39 @@ export async function deleteRecordOnPds(appUrl: string, did: string, uri: string
 		rkey: parsed.rkey
 	});
 }
+
+// 自分のリポジトリの指定コレクションのレコードを全ページ走査して削除する。
+// 箱削除時のPDSクリーンアップ用。best-effort（1件の失敗で全体を止めない）。
+export async function deleteAllRecordsInCollection(
+	appUrl: string,
+	did: string,
+	collection: string
+): Promise<void> {
+	const client = await createOAuthClient(appUrl);
+	const session = await client.restore(did);
+	const agent = new Agent(session);
+
+	let cursor: string | undefined;
+	do {
+		const res = await agent.com.atproto.repo.listRecords({
+			repo: did,
+			collection,
+			limit: 100,
+			cursor
+		});
+		for (const record of res.data.records) {
+			const parsed = parseAtUri(record.uri);
+			if (!parsed) continue;
+			try {
+				await agent.com.atproto.repo.deleteRecord({
+					repo: did,
+					collection: parsed.collection,
+					rkey: parsed.rkey
+				});
+			} catch (e) {
+				console.error('Failed to delete record on PDS', record.uri, e);
+			}
+		}
+		cursor = res.data.cursor;
+	} while (cursor);
+}

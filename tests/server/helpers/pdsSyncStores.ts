@@ -24,6 +24,7 @@ let cidSerial = 0;
 export function resetStores(): void {
 	messages.clear();
 	pdsRecords.clear();
+	deletedUsers.clear();
 	cidSerial = 0;
 }
 
@@ -108,7 +109,22 @@ export function parseAtUri(uri: string): ParsedAtUri | null {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Env = any;
 
+// 削除済み扱いにする箱主(DID)。getUserByDid はこの集合にあれば null を返す。
+const deletedUsers = new Set<string>();
+
+/** テストで箱主を削除済みにする（復活防止ガードの検証用）。 */
+export function markUserDeleted(did: string): void {
+	deletedUsers.add(did);
+}
+
 export const fakeDb = {
+	// 本物の getUserByDid のサブセット。既定では存在(=非null)を返し、
+	// markUserDeleted で削除済みにした DID のみ null を返す。
+	async getUserByDid(_env: Env, did: string): Promise<{ did: string } | null> {
+		if (deletedUsers.has(did)) return null;
+		return { did };
+	},
+
 	async getMessageById(_env: Env, id: string): Promise<Message | null> {
 		const m = messages.get(id);
 		return m ? { ...m } : null;

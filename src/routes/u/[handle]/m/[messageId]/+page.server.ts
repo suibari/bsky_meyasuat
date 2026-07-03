@@ -11,6 +11,8 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 
 	let message = await getMessageById(env, params.messageId);
 	if (!message) error(404, 'Message not found');
+	// 送信者が削除した質問は一覧同様に非公開扱いとし、パーマリンク直アクセスでも表示しない
+	if (message.senderDeletedAt) error(404, 'Message not found');
 
 	const syncTask = reconcileMessageWithPds(env, message);
 	if (ctx) {

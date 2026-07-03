@@ -28,6 +28,7 @@ import {
 	createMessageFromPds,
 	getMessageById,
 	getMessageByQuestionRecordUri,
+	getUserByDid,
 	markAnswerMissingFromPds,
 	markQuestionMissingFromPds,
 	reconcileAnswerFromPds,
@@ -105,6 +106,17 @@ async function ingestQuestionCreatesFromPds(env: Env, senderDid: string, appUrl:
 
 		let message = await getMessageById(env, messageId);
 		if (!message) {
+			// 箱主(subject)のユーザーが存在しない場合は取り込まない。
+			// 箱を削除したユーザー宛の質問レコードが送信者PDSに残っていても、
+			// 削除済みの箱を再生成（復活）させないためのガード。
+			const boxOwner = await getUserByDid(env, subjectDid);
+			if (!boxOwner) {
+				logSkippedRecord('question-box-owner-deleted', rec.uri, {
+					messageId,
+					subjectDid
+				});
+				continue;
+			}
 			message = await createMessageFromPds(env, {
 				id: messageId,
 				creatorDid: subjectDid,

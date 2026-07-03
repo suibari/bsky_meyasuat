@@ -447,6 +447,54 @@ export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: s
 	return rows.length > 0;
 }
 
+export async function getCreatorImageKeys(env: Env, creatorDid: string): Promise<string[]> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&select=image_keys`,
+		{ headers: headers(env) }
+	);
+	if (!res.ok) return [];
+	const rows = await res.json() as { image_keys: string[] | null }[];
+	return rows.flatMap((row) => row.image_keys ?? []);
+}
+
+// 自分が他人の箱へ送った質問を送信者側だけ切り離す。相手(creator)の回答データは
+// 同じ行に残るため巻き込まない。sender_deleted_at をセットすることで各一覧の
+// フィルタ(sender_deleted_at=is.null)から除外される。
+export async function detachSentQuestions(env: Env, senderDid: string): Promise<void> {
+	const res = await fetch(
+		`${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&sender_deleted_at=is.null`,
+		{
+			method: 'PATCH',
+			headers: { ...headers(env), Prefer: 'return=minimal' },
+			body: JSON.stringify({
+				question_record_uri: null,
+				question_record_cid: null,
+				sender_deleted_at: new Date().toISOString()
+			})
+		}
+	);
+	if (!res.ok) await throwPostgrestError(res, 'detachSentQuestions');
+}
+
+// 箱本体(users)と、それに紐づくデータを全削除する。creator_did=自分 のメッセージ、
+// rate_limit_log、sessions、users の順に子から親へ削除する。
+// R2画像と送信質問のdetachは呼び出し側(エンドポイント)で事前に処理する。
+export async function deleteBoxAndRelatedData(env: Env, did: string): Promise<void> {
+	const deletes: [string, string][] = [
+		[`messages?creator_did=eq.${encodeURIComponent(did)}`, 'deleteBoxMessages'],
+		[`rate_limit_log?creator_did=eq.${encodeURIComponent(did)}`, 'deleteBoxRateLimitLog'],
+		[`sessions?user_did=eq.${encodeURIComponent(did)}`, 'deleteBoxSessions'],
+		[`users?did=eq.${encodeURIComponent(did)}`, 'deleteBoxUser']
+	];
+	for (const [query, action] of deletes) {
+		const res = await fetch(`${env.POSTGREST_URL}/${query}`, {
+			method: 'DELETE',
+			headers: { ...headers(env), Prefer: 'return=minimal' }
+		});
+		if (!res.ok) await throwPostgrestError(res, action);
+	}
+}
+
 export async function reconcileQuestionFromPds(
 	env: Env,
 	id: string,
