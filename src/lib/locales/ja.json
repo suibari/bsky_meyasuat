@@ -91,7 +91,7 @@
 	"settings.box_name_placeholder": "例: 質問箱",
 	"settings.notifications": "通知設定",
 	"settings.notify_enabled": "新着メッセージを Bluesky でお知らせする",
-	"settings.notify_description": "ONにするとめやすあっとbotを自動でフォローします。botをフォローしている間だけ、新着メッセージのメンションが届きます",
+	"settings.notify_description": "ONにするとめやすあっとbotを自動でフォローします。botをフォローしている間だけ、新着メッセージをBlueskyのDM(ダイレクトメッセージ)でお知らせします",
 	"settings.notify_save_error": "通知設定の保存に失敗しました。時間をおいて再度お試しください。",
 	"settings.language": "言語",
 	"settings.theme": "テーマ",

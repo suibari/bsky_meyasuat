@@ -23,6 +23,7 @@ export type Message = {
 	body: string;
 	imageKeys: string[];
 	isRead: boolean;
+	/** DM送信後の識別子 (`chat:${convoId}/${messageId}`)。旧仕様ではBluesky公開投稿のAT-URIだった */
 	botPostUri: string | null;
 	ipHash: string;
 	createdAt: string;

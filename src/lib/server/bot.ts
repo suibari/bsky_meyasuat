@@ -1,5 +1,12 @@
-import { AtpAgent, RichText } from '@atproto/api';
+import {
+	AtpAgent,
+	RichText,
+	ChatBskyConvoGetConvoForMembers,
+	ChatBskyConvoSendMessage
+} from '@atproto/api';
 import { getUserByDid, updateMessageBotUri } from './db.js';
+
+const CHAT_PROXY_DID = 'did:web:api.bsky.chat';
 
 export async function notifyCreator(
 	env: App.Platform['env'],
@@ -31,20 +38,49 @@ export async function notifyCreator(
 	const boxName = creatorBoxName?.trim() || 'めやすばこ';
 
 	const sender = senderDid ? await getUserByDid(env, senderDid) : null;
-	// ハンドルに @ を付けるとメンションとして検出され送信者に通知が飛ぶため、付けない
 	const notice = sender
 		? `${boxName}に、${sender.displayName?.trim() || sender.handle}(${sender.handle})さんからメッセージが届きました！`
 		: `${boxName}にメッセージが届きました！`;
-	const text = `@${creatorHandle} ${notice}\n${msgUrl}`;
+	const text = `${notice}\n${msgUrl}`;
 
 	const rt = new RichText({ text });
 	await rt.detectFacets(agent);
 
-	const result = await agent.post({
-		text: rt.text,
-		facets: rt.facets,
-		langs: ['ja', 'en']
-	});
+	const chatAgent = agent.withProxy('bsky_chat', CHAT_PROXY_DID);
 
-	await updateMessageBotUri(env, messageId, result.uri);
+	try {
+		const {
+			data: { convo }
+		} = await chatAgent.chat.bsky.convo.getConvoForMembers({ members: [creatorDid] });
+
+		const { data: messageView } = await chatAgent.chat.bsky.convo.sendMessage({
+			convoId: convo.id,
+			message: { text: rt.text, facets: rt.facets }
+		});
+
+		await updateMessageBotUri(env, messageId, `chat:${convo.id}/${messageView.id}`);
+	} catch (e) {
+		if (
+			e instanceof ChatBskyConvoGetConvoForMembers.MessagesDisabledError ||
+			e instanceof ChatBskyConvoGetConvoForMembers.NotFollowedBySenderError ||
+			e instanceof ChatBskyConvoGetConvoForMembers.BlockedActorError ||
+			e instanceof ChatBskyConvoGetConvoForMembers.BlockedSubjectError ||
+			e instanceof ChatBskyConvoGetConvoForMembers.RecipientNotFoundError ||
+			e instanceof ChatBskyConvoGetConvoForMembers.AccountSuspendedError ||
+			e instanceof ChatBskyConvoSendMessage.ConvoLockedError ||
+			e instanceof ChatBskyConvoSendMessage.InvalidConvoError
+		) {
+			console.warn('[bot] DM not deliverable', {
+				messageId,
+				creatorDid,
+				error: e.constructor.name
+			});
+			return;
+		}
+		console.error('[bot] notifyCreator failed unexpectedly', {
+			messageId,
+			creatorDid,
+			error: e instanceof Error ? e.message : String(e)
+		});
+	}
 }
