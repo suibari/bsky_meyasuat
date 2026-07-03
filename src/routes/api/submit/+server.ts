@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { getUserByDid, createMessage, checkRateLimit, logRateLimit, PostgrestError } from '$lib/server/db.js';
 import { uploadToR2, messageImageKey, getTotalR2Bytes } from '$lib/server/r2.js';
-import { verifyTurnstile } from '$lib/server/turnstile.js';
+import { isTurnstileEnabled, verifyTurnstile } from '$lib/server/turnstile.js';
 import { notifyCreator } from '$lib/server/bot.js';
 import { checkModeration } from '$lib/server/moderation.js';
 
@@ -18,7 +18,7 @@ async function hashIp(ip: string, secret: string): Promise<string> {
 	return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, url }) => {
 	const env = platform?.env;
 	const ctx = platform?.context;
 	if (!env) error(503, 'Service unavailable');
@@ -40,8 +40,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	// Turnstile 検証
 	const ip = request.headers.get('CF-Connecting-IP') ?? '';
-	const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET_KEY, turnstileToken, ip || undefined);
-	if (!turnstileOk) error(403, 'Turnstile verification failed');
+	if (isTurnstileEnabled(url)) {
+		const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET_KEY, turnstileToken, ip || undefined);
+		if (!turnstileOk) error(403, 'Turnstile verification failed');
+	}
 
 	// IP レートリミット
 	const ipHash = await hashIp(ip || 'unknown', env.SESSION_SECRET);

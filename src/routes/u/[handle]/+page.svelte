@@ -114,14 +114,14 @@
 		errorMsg = '';
 		if (!body.trim()) { errorMsg = $t('submit.error.body_required'); return; }
 		if (body.length > MAX_CHARS) { errorMsg = $t('submit.error.too_long'); return; }
-		if (!turnstileToken) { errorMsg = $t('submit.error.turnstile'); return; }
+		if (data.turnstileEnabled && !turnstileToken) { errorMsg = $t('submit.error.turnstile'); return; }
 
 		submitting = true;
 		try {
 			const fd = new FormData();
 			fd.append('body', body.trim());
 			fd.append('creator_did', data.creator.did);
-			fd.append('turnstile_token', turnstileToken);
+			if (data.turnstileEnabled) fd.append('turnstile_token', turnstileToken);
 			if (shareHandle && data.user) fd.append('sender_did', data.user.did);
 
 			compressedBlobs = [];
@@ -267,18 +267,20 @@
 				{/if}
 			</div>
 
-			<!-- Turnstile -->
-			<div class="mb-4">
-				<Turnstile
-					siteKey={data.turnstileSiteKey}
-					on:callback={(e) => { turnstileToken = e.detail.token; }}
-					theme="auto"
-				/>
-			</div>
+			{#if data.turnstileEnabled}
+				<!-- Turnstile -->
+				<div class="mb-4">
+					<Turnstile
+						siteKey={data.turnstileSiteKey}
+						on:callback={(e) => { turnstileToken = e.detail.token; }}
+						theme="auto"
+					/>
+				</div>
+			{/if}
 
 			<button
 				onclick={submit}
-				disabled={submitting || !turnstileToken}
+				disabled={submitting || (data.turnstileEnabled && !turnstileToken)}
 				class="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
 			>
 				{submitting ? $t('submit.sending') : $t('submit.button')}

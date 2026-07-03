@@ -1,3 +1,9 @@
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+export function isTurnstileEnabled(url: URL): boolean {
+	return !LOCAL_HOSTNAMES.has(url.hostname);
+}
+
 export async function verifyTurnstile(
 	secretKey: string,
 	token: string,

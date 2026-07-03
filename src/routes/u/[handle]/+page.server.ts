@@ -4,6 +4,8 @@ import { getUserByHandle, getAnsweredMessages } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
 import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
+import { isTurnstileEnabled } from '$lib/server/turnstile.js';
+
 export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	const ctx = platform?.context;
@@ -23,8 +25,9 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 
 	const appUrl = env?.PUBLIC_APP_URL ?? '';
 	const turnstileSiteKey = env?.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+	const turnstileEnabled = isTurnstileEnabled(url);
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
-    const imageUrlCache = new Map<string, string[]>();
+	const imageUrlCache = new Map<string, string[]>();
 
 	const answeredMessages = env
 		? await getAnsweredMessages(env, user.did, { limit: 10, offset: page * 10 })
@@ -65,6 +68,7 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 		},
 		appUrl,
 		turnstileSiteKey,
+		turnstileEnabled,
 		answeredQA,
 		page
 	};
