@@ -90,6 +90,7 @@
 	"dashboard.share_on_bluesky": "Share on Bluesky",
 	"dashboard.share_on_x": "Share on X",
 	"dashboard.share_post_placeholder": "Add a comment (optional)",
+	"dashboard.share_post_bluesky_only": "* Only applies to Bluesky sharing",
 	"dashboard.share_box_description": "Send a question to {box}!",
 	"dashboard.post_success": "Posted!",
 	"dashboard.view_post": "View post",

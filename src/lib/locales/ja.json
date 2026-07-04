@@ -90,6 +90,7 @@
 	"dashboard.share_on_bluesky": "Blueskyでシェア",
 	"dashboard.share_on_x": "Xでシェア",
 	"dashboard.share_post_placeholder": "コメントを追加（任意）",
+	"dashboard.share_post_bluesky_only": "※Blueskyのシェアのみに反映されます",
 	"dashboard.share_box_description": "{box}に質問を送ってみませんか？",
 	"dashboard.post_success": "投稿しました",
 	"dashboard.view_post": "投稿を見る",

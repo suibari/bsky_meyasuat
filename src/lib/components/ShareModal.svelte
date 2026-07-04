@@ -28,6 +28,7 @@
 	const BLUESKY_MAX_CHARS = 300;
 
 	let linkCopied = $state(false);
+	let imageLoaded = $state(false);
 	let postText = $state('');
 	let posting = $state(false);
 	let postResult = $state<{ postUrl?: string } | null>(null);
@@ -76,11 +77,20 @@
 	<div class="bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
 		<h2 class="text-base font-bold text-slate-100 mb-4 text-center">{title ?? $t('dashboard.share_title')}</h2>
 
-		<img
-			src={ogImageUrl}
-			alt="OGP"
-			class="w-full h-auto rounded-xl border border-slate-700 mb-6"
-		/>
+		<div class="relative w-full aspect-1200/630 rounded-xl border border-slate-700 mb-6 overflow-hidden bg-slate-800">
+			{#if !imageLoaded}
+				<div class="absolute inset-0 animate-pulse bg-slate-700"></div>
+			{/if}
+			<img
+				src={ogImageUrl}
+				alt="OGP"
+				onload={() => imageLoaded = true}
+				onerror={() => imageLoaded = true}
+				class="w-full h-full object-cover transition-opacity duration-300"
+				class:opacity-0={!imageLoaded}
+				class:opacity-100={imageLoaded}
+			/>
+		</div>
 
 		<div class="mb-4">
 			<textarea
@@ -89,8 +99,11 @@
 				rows="3"
 				class="w-full resize-none rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-cyan-600"
 			></textarea>
-			<div class="text-right text-xs mt-1" class:text-red-500={postText.length > BLUESKY_MAX_CHARS} class:text-slate-500={postText.length <= BLUESKY_MAX_CHARS}>
-				{postText.length} / {BLUESKY_MAX_CHARS}
+			<div class="flex items-center justify-between text-xs mt-1">
+				<span class="text-slate-500">{$t('dashboard.share_post_bluesky_only')}</span>
+				<span class:text-red-500={postText.length > BLUESKY_MAX_CHARS} class:text-slate-500={postText.length <= BLUESKY_MAX_CHARS}>
+					{postText.length} / {BLUESKY_MAX_CHARS}
+				</span>
 			</div>
 		</div>
 
