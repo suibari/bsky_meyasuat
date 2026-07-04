@@ -1,15 +1,13 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
-import { getMessageById, getUserByDid, getUserByHandle } from '$lib/server/db.js';
-import { resolveHandle } from '$lib/server/atproto.js';
+import { getMessageById, getUserByDid, resolveCreatorByHandle } from '$lib/server/db.js';
 import { getAnsweredMessageFromPdsById, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
 import {
 	ensureInit,
 	loadFonts,
 	loadIcon,
 	buildMessageOgSvgNode,
-	satori,
-	Resvg,
+	renderOgPng,
 	fetchImageAsDataUri
 } from '$lib/server/og.js';
 
@@ -23,12 +21,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 		return cached as unknown as Response;
 	}
 
-	const handle = params.handle.replace(/^@/, '');
-	let creator = await getUserByHandle(env, handle);
-	if (!creator) {
-		const resolved = await resolveHandle(handle);
-		if (resolved) creator = await getUserByDid(env, resolved.did);
-	}
+	const creator = await resolveCreatorByHandle(env, params.handle);
 	if (!creator) error(404, 'Creator not found');
 
 	const appUrl = env.PUBLIC_APP_URL || url.origin;
@@ -63,7 +56,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 		creator.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null)
 	]);
 
-	const svg = await satori(
+	const png = await renderOgPng(
 		buildMessageOgSvgNode({
 			body,
 			sender,
@@ -73,19 +66,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 			creatorAvatarDataUri,
 			icon
 		}),
-		{
-			width: 1200,
-			height: 630,
-			fonts: [
-				{ name: 'Noto Sans JP', data: fonts.noto, weight: 400, style: 'normal' },
-				{ name: 'KillGothic', data: fonts.kill, weight: 400, style: 'normal' }
-			]
-		}
+		fonts
 	);
-
-	const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } });
-	const rendered = resvg.render();
-	const png = rendered.asPng();
 
 	const response = new Response(png.buffer as ArrayBuffer, {
 		headers: {

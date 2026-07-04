@@ -1,4 +1,4 @@
-import { getRecordByAtUri, parseAtUri } from './atproto.js';
+import { getRecordByAtUri, parseAtUri, resolveHandle } from './atproto.js';
 
 export type User = {
 	did: string;
@@ -151,6 +151,16 @@ export async function getUserByHandle(env: Env, handle: string): Promise<User | 
 	if (!res.ok) return null;
 	const rows = await res.json() as Record<string, unknown>[];
 	return rows[0] ? withPdsConfig(toUser(rows[0])) : null;
+}
+
+export async function resolveCreatorByHandle(env: Env, rawHandle: string): Promise<User | null> {
+	const handle = rawHandle.replace(/^@/, '');
+	let user = await getUserByHandle(env, handle);
+	if (!user) {
+		const resolved = await resolveHandle(handle);
+		if (resolved) user = await getUserByDid(env, resolved.did);
+	}
+	return user;
 }
 
 export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & Partial<User>): Promise<User> {

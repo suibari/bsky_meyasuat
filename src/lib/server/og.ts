@@ -37,8 +37,8 @@ export async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; ki
 
 let iconCache: string | null = null;
 
-function truncateText(text: string, maxLength: number): string {
-	return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+function truncateText(text: string, maxLength: number, ellipsis = '...'): string {
+	return text.length > maxLength ? `${text.slice(0, maxLength)}${ellipsis}` : text;
 }
 
 export async function loadIcon(appUrl: string): Promise<string> {
@@ -131,6 +131,64 @@ export function buildQuestionNode(body: string, hasHeader = false) {
 	};
 }
 
+export function buildLogoNode(
+	icon: string,
+	opts: {
+		iconSize: number;
+		titleFontSize: number;
+		domainFontSize: number;
+		gap?: number;
+		innerGap?: number;
+	}
+) {
+	const { iconSize, titleFontSize, domainFontSize, gap = 16, innerGap = 8 } = opts;
+	return {
+		type: 'div',
+		props: {
+			style: { display: 'flex', alignItems: 'center', gap: `${gap}px`, flexShrink: 0 },
+			children: [
+				{ type: 'img', props: { src: icon, width: iconSize, height: iconSize } },
+				{
+					type: 'div',
+					props: {
+						style: {
+							display: 'flex',
+							flexDirection: 'column',
+							alignItems: 'flex-end',
+							gap: `${innerGap}px`
+						},
+						children: [
+							{
+								type: 'div',
+								props: {
+									style: {
+										fontSize: `${titleFontSize}px`,
+										fontWeight: 700,
+										color: '#0ea5e9',
+										fontFamily: '"KillGothic"'
+									},
+									children: 'めやすあっと'
+								}
+							},
+							{
+								type: 'div',
+								props: {
+									style: {
+										fontSize: `${domainFontSize}px`,
+										color: '#94a3b8',
+										fontFamily: '"KillGothic"'
+									},
+									children: 'meyasuat.suibari.com'
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	};
+}
+
 export function buildMessageOgSvgNode({
 	body,
 	sender,
@@ -150,18 +208,19 @@ export function buildMessageOgSvgNode({
 }) {
 	const displayCreatorName = truncateText(creatorName, 18);
 	const displayBoxName = truncateText(boxName, 14);
+	const senderName = sender ? (sender.displayName ?? sender.handle) : null;
 	const headerNode = sender
 		? {
 				type: 'div',
 				props: {
 					style: { display: 'flex', alignItems: 'center', gap: '12px' },
 					children: [
-						buildAvatarNode(senderAvatarDataUri, sender.displayName ?? sender.handle, 48),
+						buildAvatarNode(senderAvatarDataUri, senderName!, 48),
 						{
 							type: 'div',
 							props: {
 								style: { fontSize: '28px', color: '#475569', fontFamily: '"Noto Sans JP"' },
-								children: `${((sender.displayName ?? sender.handle).length > 12 ? (sender.displayName ?? sender.handle).slice(0, 12) + '…' : (sender.displayName ?? sender.handle))}さんからのメッセージ`
+								children: `${truncateText(senderName!, 12, '…')}さんからのメッセージ`
 							}
 						}
 					]
@@ -224,8 +283,11 @@ export function buildMessageOgSvgNode({
 												style: {
 													fontSize: '24px',
 													color: '#64748b',
-													fontFamily: '"Noto Sans JP"',
-													flexShrink: 1
+													fontFamily: '"KillGothic"',
+													flexShrink: 1,
+													whiteSpace: 'nowrap',
+													overflow: 'hidden',
+													textOverflow: 'ellipsis'
 												},
 												children: `${displayCreatorName} の ${displayBoxName}`
 											}
@@ -233,51 +295,13 @@ export function buildMessageOgSvgNode({
 									]
 								}
 							},
-							{
-								type: 'div',
-								props: {
-									style: { display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 },
-									children: [
-										{ type: 'img', props: { src: icon, width: 52, height: 52 } },
-										{
-											type: 'div',
-											props: {
-												style: {
-													display: 'flex',
-													flexDirection: 'column',
-													alignItems: 'flex-end',
-													gap: '4px'
-												},
-												children: [
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '48px',
-																fontWeight: 700,
-																color: '#0ea5e9',
-																fontFamily: '"KillGothic"'
-															},
-															children: 'めやすあっと'
-														}
-													},
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '14px',
-																color: '#94a3b8',
-																fontFamily: '"KillGothic"'
-															},
-															children: 'meyasuat.suibari.com'
-														}
-													}
-												]
-											}
-										}
-									]
-								}
-							}
+							buildLogoNode(icon, {
+								iconSize: 52,
+								titleFontSize: 48,
+								domainFontSize: 14,
+								gap: 12,
+								innerGap: 4
+							})
 						]
 					}
 				}
@@ -334,7 +358,11 @@ export function buildUserOgSvgNode({
 							fontSize: '52px',
 							fontWeight: 700,
 							color: '#0369a1',
-							fontFamily: '"KillGothic"'
+							fontFamily: '"KillGothic"',
+							maxWidth: '1072px',
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis'
 						},
 						children: `${displayName} の ${displayBoxName}`
 					}
@@ -411,57 +439,29 @@ export function buildUserOgSvgNode({
 									]
 								}
 							},
-							{
-								type: 'div',
-								props: {
-									style: { display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 },
-									children: [
-										{ type: 'img', props: { src: icon, width: 72, height: 72 } },
-										{
-											type: 'div',
-											props: {
-												style: {
-													display: 'flex',
-													flexDirection: 'column',
-													alignItems: 'flex-end',
-													gap: '8px'
-												},
-												children: [
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '64px',
-																fontWeight: 700,
-																color: '#0ea5e9',
-																fontFamily: '"KillGothic"'
-															},
-															children: 'めやすあっと'
-														}
-													},
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '18px',
-																color: '#94a3b8',
-																fontFamily: '"KillGothic"'
-															},
-															children: 'meyasuat.suibari.com'
-														}
-													}
-												]
-											}
-										}
-									]
-								}
-							}
+							buildLogoNode(icon, { iconSize: 72, titleFontSize: 64, domainFontSize: 18 })
 						]
 					}
 				}
 			]
 		}
 	};
+}
+
+export async function renderOgPng(
+	node: Parameters<typeof satori>[0],
+	fonts: { noto: ArrayBuffer; kill: ArrayBuffer }
+): Promise<Uint8Array> {
+	const svg = await satori(node, {
+		width: 1200,
+		height: 630,
+		fonts: [
+			{ name: 'Noto Sans JP', data: fonts.noto, weight: 400, style: 'normal' },
+			{ name: 'KillGothic', data: fonts.kill, weight: 400, style: 'normal' }
+		]
+	});
+	const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } });
+	return resvg.render().asPng();
 }
 
 export { satori, Resvg };
