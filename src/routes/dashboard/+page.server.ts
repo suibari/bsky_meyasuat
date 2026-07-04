@@ -1,14 +1,16 @@
 import type { PageServerLoad } from './$types';
 import type { Message } from '$lib/server/db.js';
-import { getMessages, getAnsweredMessages, getSentMessages, getUserByDid } from '$lib/server/db.js';
+import { getMessages, getUserByDid } from '$lib/server/db.js';
 import {
 	countVisibleUnread,
 	filterMessagesByLiveQuestion,
+	getAnsweredMessagesFromPds,
+	getSentMessagesFromPds,
 	ingestCreatesFromPdsForUser,
 	reconcileMessagesWithPds,
-	resolveAnsweredContent
+	resolveAnsweredContent,
+	resolveQuestionContent
 } from '$lib/server/pdsSync.js';
-import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const env = platform?.env;
@@ -33,9 +35,9 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		if (!env) return [[] as Message[], 0] as const;
 
 		const rawMessages = tab === 'answered'
-			? await getAnsweredMessages(env, user.did, { limit, offset: page * limit })
+			? await getAnsweredMessagesFromPds(env, user.did, env.PUBLIC_APP_URL ?? '', { limit, offset: page * limit })
 			: tab === 'sent'
-				? await getSentMessages(env, user.did, { limit, offset: page * limit })
+				? await getSentMessagesFromPds(env, user.did, env.PUBLIC_APP_URL ?? '', { limit, offset: page * limit })
 				: await getMessages(env, user.did, {
 						limit,
 						offset: page * limit,
@@ -64,11 +66,16 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		}
 	}
 
-	const imageUrlCache = new Map<string, string[]>();
 	const enrichedOrNull = await Promise.all(messages.map(async (m) => {
 		let sender = null;
-		if (env && m.senderDid) {
-			const senderUser = await getUserByDid(env, m.senderDid);
+		let resolvedQuestion = null;
+		if (tab !== 'answered') {
+			resolvedQuestion = await resolveQuestionContent(m);
+			if (!resolvedQuestion) return null;
+		}
+		const senderDid = m.senderDid ?? resolvedQuestion?.senderDid ?? null;
+		if (env && senderDid) {
+			const senderUser = await getUserByDid(env, senderDid);
 			if (senderUser) {
 				sender = {
 					did: senderUser.did,
@@ -109,7 +116,8 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 
 		return {
 			...m,
-			imageUrls: env ? await resolveMessageImageUrls(env, m, imageUrlCache) : [],
+			body: resolvedQuestion?.body ?? m.body,
+			imageUrls: resolvedQuestion?.imageUrls ?? [],
 			sender,
 			creator
 		};

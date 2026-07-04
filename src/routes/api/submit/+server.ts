@@ -95,10 +95,8 @@ export const POST: RequestHandler = async ({ request, platform, url }) => {
 	try {
 		message = await createMessage(env, {
 			creatorDid,
-			body,
-			imageKeys,
-			ipHash,
-			senderDid: senderDid?.startsWith('did:') ? senderDid : null
+			body: prefersPdsImages ? '' : body,
+			imageKeys
 		});
 	} catch (e) {
 		if (e instanceof PostgrestError && e.code === '23514') error(400, 'Message too long');
@@ -111,7 +109,7 @@ export const POST: RequestHandler = async ({ request, platform, url }) => {
 	// Bot 通知 (fire-and-forget)
 	if (creator.notifyEnabled && ctx) {
 		ctx.waitUntil(
-			notifyCreator(env, message.id, creator.did, creator.handle, creator.boxName, message.senderDid)
+			notifyCreator(env, message.id, creator.did, creator.handle, creator.boxName, null)
 		);
 	}
 

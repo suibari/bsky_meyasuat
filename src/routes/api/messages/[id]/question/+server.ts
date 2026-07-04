@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { getMessageById, deleteQuestionForSender } from '$lib/server/db.js';
-import { getRecordByAtUri } from '$lib/server/atproto.js';
+import { getRecordByAtUri, parseAtUri } from '$lib/server/atproto.js';
 
 export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	const env = platform?.env;
@@ -9,7 +9,9 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 
 	const message = await getMessageById(env, params.id);
 	if (!message) error(404, 'Message not found');
-	if (message.senderDid !== locals.user.did) error(403, 'Forbidden');
+	if (!message.questionRecordUri) error(400, 'Question is anonymous or has no PDS record');
+	const parsed = parseAtUri(message.questionRecordUri);
+	if (!parsed || parsed.repo !== locals.user.did) error(403, 'Forbidden');
 
 	if (message.questionRecordUri) {
 		let lookup;

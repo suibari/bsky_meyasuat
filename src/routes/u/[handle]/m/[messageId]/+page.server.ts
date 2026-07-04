@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
-import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
-import { isQuestionVisibleFromPds, reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import { getMessageById, getUserByDid } from '$lib/server/db.js';
+import { getAnsweredMessagesFromPds, isQuestionVisibleFromPds, reconcileMessageWithPds, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
@@ -22,11 +22,15 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	// 回答済みならPDSのanswerレコードをread-throughで正とする。フレッシュな取り下げ・
 	// 回答削除の検知もここで行われる（nullなら表示すべき内容が無い＝404）。
 	let resolvedContent: { body: string; answer: string; imageUrls: string[] } | null = null;
-	if (message.answeredAt) {
+	let resolvedQuestion: { body: string; imageUrls: string[]; senderDid: string | null } | null = null;
+	if (message.answerRecordUri) {
 		resolvedContent = await resolveAnsweredContent(env, message);
 		if (!resolvedContent) error(404, 'Message not found');
 	} else if (!(await isQuestionVisibleFromPds(message))) {
 		error(404, 'Message not found');
+	} else {
+		resolvedQuestion = await resolveQuestionContent(message);
+		if (!resolvedQuestion) error(404, 'Message not found');
 	}
 
 	const creator = await getUserByDid(env, message.creatorDid);
@@ -38,8 +42,9 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	}
 
 	let senderProfile = null;
-	if (message.senderDid) {
-		const sender = await getUserByDid(env, message.senderDid);
+	const senderDid = message.senderDid ?? resolvedQuestion?.senderDid ?? null;
+	if (senderDid) {
+		const sender = await getUserByDid(env, senderDid);
 		if (sender) {
 			senderProfile = {
 				did: sender.did,
@@ -53,19 +58,19 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	const appUrl = env.PUBLIC_APP_URL || '';
 	const isOwner = locals.user?.did === message.creatorDid;
 
-	const relatedQA = await getAnsweredMessages(env, message.creatorDid, {
+	const relatedQA = await getAnsweredMessagesFromPds(env, message.creatorDid, appUrl, {
 		limit: 10,
 		excludeId: message.id
 	});
 
 	const imageUrls = resolvedContent
 		? resolvedContent.imageUrls
-		: await resolveMessageImageUrls(env, message);
+		: resolvedQuestion?.imageUrls ?? await resolveMessageImageUrls(env, message);
 
 	return {
 		message: {
 			...message,
-			body: resolvedContent?.body ?? message.body,
+			body: resolvedContent?.body ?? resolvedQuestion?.body ?? message.body,
 			answer: resolvedContent?.answer ?? message.answer,
 			imageUrls,
 			sender: senderProfile

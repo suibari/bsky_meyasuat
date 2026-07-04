@@ -51,15 +51,12 @@ export function seedMessage(
 		body: partial.body,
 		imageKeys: partial.imageKeys ?? [],
 		isRead: partial.isRead ?? false,
-		botPostUri: partial.botPostUri ?? null,
-		ipHash: partial.ipHash ?? 'seed',
 		createdAt: partial.createdAt ?? new Date().toISOString(),
 		answer: partial.answer ?? null,
 		answeredAt: partial.answeredAt ?? null,
 		senderDid: partial.senderDid ?? null,
 		questionRecordUri: partial.questionRecordUri ?? null,
-		answerRecordUri: partial.answerRecordUri ?? null,
-		answerDeletedAt: partial.answerDeletedAt ?? null
+		answerRecordUri: partial.answerRecordUri ?? null
 	};
 	messages.set(full.id, full);
 	return { ...full };
@@ -151,15 +148,13 @@ export const fakeDb = {
 
 	async createMessage(
 		_env: Env,
-		data: { creatorDid: string; body: string; imageKeys: string[]; ipHash: string; senderDid: string | null }
+		data: { creatorDid: string; body: string; imageKeys: string[] }
 	): Promise<Message> {
 		return seedMessage({
 			id: crypto.randomUUID(),
 			creatorDid: data.creatorDid,
 			body: data.body,
-			imageKeys: data.imageKeys,
-			ipHash: data.ipHash,
-			senderDid: data.senderDid
+			imageKeys: data.imageKeys
 		});
 	},
 
@@ -183,11 +178,8 @@ export const fakeDb = {
 			id,
 			creatorDid: data.creatorDid,
 			body: data.body,
-			ipHash: 'pds-sync',
 			senderDid: data.senderDid,
 			questionRecordUri: data.questionRecordUri ?? null,
-			answer: data.answer ?? null,
-			answeredAt: data.answeredAt ?? null,
 			answerRecordUri: data.answerRecordUri ?? null
 		});
 	},
@@ -195,12 +187,13 @@ export const fakeDb = {
 	async updateMessageQuestionRef(
 		_env: Env,
 		id: string,
-		senderDid: string,
 		uri: string
 	): Promise<boolean> {
 		const m = messages.get(id);
-		if (!m || m.senderDid !== senderDid) return false; // WHERE id AND sender_did
+		if (!m) return false;
 		m.questionRecordUri = uri;
+		m.senderDid = parseAtUri(uri)?.repo ?? null;
+		m.body = '';
 		return true;
 	},
 
@@ -233,25 +226,19 @@ export const fakeDb = {
 	): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
-		m.answer = data.answer;
-		m.answeredAt = data.answeredAt ?? new Date().toISOString();
-		m.answerDeletedAt = null;
+		void data;
 	},
 
 	async pruneAnsweredContent(_env: Env, id: string): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
 		m.body = '';
-		m.answer = '';
 	},
 
 	async markAnswerMissingFromPds(_env: Env, id: string): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
-		m.answer = null;
-		m.answeredAt = null;
 		m.answerRecordUri = null;
-		m.answerDeletedAt = new Date().toISOString();
 	}
 };
 

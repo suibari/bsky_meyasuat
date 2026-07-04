@@ -9,7 +9,7 @@ export const PATCH: RequestHandler = async ({ params, locals, platform, request 
 	const message = await getMessageById(env, params.id);
 	if (!message) error(404, 'Message not found');
 	if (message.creatorDid !== locals.user.did) error(403, 'Forbidden');
-	if (message.answer) error(400, 'Cannot change read state of an answered message');
+	if (message.answerRecordUri) error(400, 'Cannot change read state of an answered message');
 
 	const body = await request.json().catch(() => ({})) as { read?: boolean };
 	if (body.read === false) {

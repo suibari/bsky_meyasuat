@@ -154,7 +154,6 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 
 		const m = getStoredMessage(currentId)!;
 		expect(changed).toBe(true);
-		expect(m.answer).toBe('回答です');
 		expect(m.answerRecordUri).toBe(answerUri());
 	});
 
@@ -177,8 +176,8 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 
 		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
 
-		const m = getStoredMessage(currentId)!;
-		expect(m.answer).toBe('編集後の回答'); // 追従する（凍結しない）
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved?.answer).toBe('編集後の回答'); // 表示時にPDSの正データを使う
 	});
 
 	// ---- 4. 記名質問 -------------------------------------------------------
@@ -191,7 +190,7 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 
 		const m = getStoredMessage(currentId)!;
 		expect(changed).toBe(true);
-		expect(m.body).toBe('記名の質問');
+		expect(m.body).toBe('');
 		expect(m.questionRecordUri).toBe(questionUri());
 	});
 
@@ -229,8 +228,7 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL); // 回答確定
 
 		const m = getStoredMessage(currentId)!;
-		expect(m.body).toBe('記名の質問');
-		expect(m.answer).toBe('記名への回答');
+		expect(m.body).toBe('');
 		expect(m.questionRecordUri).toBe(questionUri());
 		expect(m.answerRecordUri).toBe(answerUri());
 	});
@@ -258,7 +256,6 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 
 		expect(changed).toBe(true);
 		const m = getStoredMessage(currentId)!;
-		expect(m.answer).toBeNull();
 		expect(m.answerRecordUri).toBeNull();
 	});
 });
@@ -273,7 +270,7 @@ describe('resolveAnsweredContent: 回答済み一覧のPDS read-through', () => 
 		expect(resolved).toBeNull();
 	});
 
-	it('回答レコード未同期(レガシー)の場合はDBキャッシュへフォールバックする', async () => {
+	it('回答レコード未同期(レガシー)の場合は null（PDS answerが正）', async () => {
 		currentId = newMessageId();
 		seedMessage({
 			id: currentId,
@@ -286,7 +283,7 @@ describe('resolveAnsweredContent: 回答済み一覧のPDS read-through', () => 
 		});
 
 		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
-		expect(resolved).toEqual({ body: 'DBの質問', answer: 'DBの回答', imageUrls: [] });
+		expect(resolved).toBeNull();
 	});
 
 	it('回答レコードが生きていれば、その内容を正として使う（DBキャッシュより優先）', async () => {
@@ -424,9 +421,10 @@ describe('resolveAnsweredContent: 回答済み一覧のPDS read-through', () => 
 			senderDid: null,
 			answer: '匿名への回答',
 			answeredAt: new Date().toISOString(),
-			answerRecordUri: null,
+			answerRecordUri: answerUri(),
 			imageKeys: ['messages/2026/01/abc-0.jpg']
 		});
+		seedAnswerRecord('匿名への回答', '匿名の質問', nextCid(), { named: false });
 
 		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
 		expect(resolved?.imageUrls).toEqual(['/api/images/messages/2026/01/abc-0.jpg']);
@@ -500,7 +498,7 @@ describe('Phase 5: 回答済み本文の剪定とingestの整合性', () => {
 
 		const m = getStoredMessage(currentId)!;
 		expect(m.body).toBe('');
-		expect(m.answer).toBe('');
+		expect(m.answer).toBe('古いキャッシュの回答');
 	});
 
 	it('剪定済み(body/answerが空文字列)の行は、回答ingestで復元されない', async () => {

@@ -1,4 +1,4 @@
-import { getRecordByAtUri } from './atproto.js';
+import { getRecordByAtUri, parseAtUri } from './atproto.js';
 
 export type User = {
 	did: string;
@@ -26,16 +26,12 @@ export type Message = {
 	body: string;
 	imageKeys: string[];
 	isRead: boolean;
-	/** DM送信後の識別子 (`chat:${convoId}/${messageId}`)。旧仕様ではBluesky公開投稿のAT-URIだった */
-	botPostUri: string | null;
-	ipHash: string;
 	createdAt: string;
 	answer: string | null;
 	answeredAt: string | null;
 	senderDid: string | null;
 	questionRecordUri: string | null;
 	answerRecordUri: string | null;
-	answerDeletedAt: string | null;
 };
 
 type Env = App.Platform['env'];
@@ -128,15 +124,12 @@ function toMessage(row: Record<string, unknown>): Message {
 		body: row.body as string,
 		imageKeys: (row.image_keys as string[] | null) ?? [],
 		isRead: row.is_read as boolean,
-		botPostUri: (row.bot_post_uri as string | null) ?? null,
-		ipHash: row.ip_hash as string,
 		createdAt: row.created_at as string,
-		answer: (row.answer as string | null) ?? null,
-		answeredAt: (row.answered_at as string | null) ?? null,
-		senderDid: (row.sender_did as string | null) ?? null,
+		answer: null,
+		answeredAt: null,
+		senderDid: typeof row.question_record_uri === 'string' ? parseAtUri(row.question_record_uri)?.repo ?? null : null,
 		questionRecordUri: (row.question_record_uri as string | null) ?? null,
-		answerRecordUri: (row.answer_record_uri as string | null) ?? null,
-		answerDeletedAt: (row.answer_deleted_at as string | null) ?? null
+		answerRecordUri: (row.answer_record_uri as string | null) ?? null
 	};
 }
 
@@ -235,14 +228,12 @@ export async function deleteSession(env: Env, sessionId: string): Promise<void> 
 
 export async function createMessage(
 	env: Env,
-	data: { creatorDid: string; body: string; imageKeys: string[]; ipHash: string; senderDid: string | null }
+	data: { creatorDid: string; body: string; imageKeys: string[] }
 ): Promise<Message> {
 	const body = {
 		creator_did: data.creatorDid,
 		body: data.body,
-		image_keys: data.imageKeys,
-		ip_hash: data.ipHash,
-		sender_did: data.senderDid
+		image_keys: data.imageKeys
 	};
 	const res = await fetch(`${env.POSTGREST_URL}/messages`, {
 		method: 'POST',
@@ -261,8 +252,8 @@ export async function getMessages(
 ): Promise<Message[]> {
 	const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
 	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
-	if (unreadOnly) url += '&is_read=eq.false&answer=is.null';
-	if (readOnly) url += '&is_read=eq.true&answer=is.null';
+	if (unreadOnly) url += '&is_read=eq.false&answer_record_uri=is.null';
+	if (readOnly) url += '&is_read=eq.true&answer_record_uri=is.null';
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];
@@ -297,8 +288,6 @@ export async function createMessageFromPds(
 		body: string;
 		senderDid: string | null;
 		questionRecordUri?: string | null;
-		answer?: string | null;
-		answeredAt?: string | null;
 		answerRecordUri?: string | null;
 	}
 ): Promise<Message | null> {
@@ -306,11 +295,7 @@ export async function createMessageFromPds(
 		creator_did: data.creatorDid,
 		body: data.body,
 		image_keys: [],
-		ip_hash: 'pds-sync',
-		sender_did: data.senderDid,
 		question_record_uri: data.questionRecordUri ?? null,
-		answer: data.answer ?? null,
-		answered_at: data.answeredAt ?? null,
 		answer_record_uri: data.answerRecordUri ?? null,
 		is_read: false
 	};
@@ -352,11 +337,9 @@ export async function deleteMessage(env: Env, id: string, creatorDid: string): P
 
 export async function answerMessage(env: Env, id: string, creatorDid: string, answer: string): Promise<void> {
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}&select=id`,
 		{
-			method: 'PATCH',
-			headers: headers(env),
-			body: JSON.stringify({ answer, answered_at: new Date().toISOString(), answer_deleted_at: null })
+			headers: headers(env)
 		}
 	);
 	if (!res.ok) await throwPostgrestError(res, 'answerMessage');
@@ -387,7 +370,7 @@ export async function getAnsweredMessages(
 	opts: { limit?: number; offset?: number; excludeId?: string } = {}
 ): Promise<Message[]> {
 	const { limit = 10, offset = 0, excludeId } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer_record_uri=not.is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
@@ -403,42 +386,27 @@ export async function pruneAnsweredContent(env: Env, id: string): Promise<void> 
 	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
 		method: 'PATCH',
 		headers: headers(env),
-		body: JSON.stringify({ body: '', answer: '' })
+		body: JSON.stringify({ body: '' })
 	});
 }
 
-export async function getSentMessages(
-	env: Env,
-	senderDid: string,
-	opts: { limit?: number; offset?: number } = {}
-): Promise<Message[]> {
-	const { limit = 20, offset = 0 } = opts;
-	const url = `${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
-	const res = await fetch(url, { headers: headers(env) });
-	if (!res.ok) return [];
-	const rows = await res.json() as Record<string, unknown>[];
-	return rows.map(toMessage);
-}
-
 export async function updateMessageBotUri(env: Env, id: string, botPostUri: string): Promise<void> {
-	await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`,
-		{ method: 'PATCH', headers: headers(env), body: JSON.stringify({ bot_post_uri: botPostUri }) }
-	);
+	void env;
+	void id;
+	void botPostUri;
 }
 
 export async function updateMessageQuestionRef(
 	env: Env,
 	id: string,
-	senderDid: string,
 	uri: string
 ): Promise<boolean> {
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}`,
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`,
 		{
 			method: 'PATCH',
 			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({ question_record_uri: uri })
+			body: JSON.stringify({ question_record_uri: uri, body: '' })
 		}
 	);
 	if (!res.ok) return false;
@@ -447,8 +415,9 @@ export async function updateMessageQuestionRef(
 }
 
 export async function deleteQuestionForSender(env: Env, id: string, senderDid: string): Promise<boolean> {
+	void senderDid;
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}&select=id`,
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&select=id`,
 		{
 			headers: headers(env)
 		}
@@ -465,10 +434,7 @@ export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: s
 			method: 'PATCH',
 			headers: { ...headers(env), Prefer: 'return=representation' },
 			body: JSON.stringify({
-				answer: null,
-				answered_at: null,
-				answer_record_uri: null,
-				answer_deleted_at: new Date().toISOString()
+				answer_record_uri: null
 			})
 		}
 	);
@@ -525,15 +491,9 @@ export async function reconcileAnswerFromPds(
 	id: string,
 	data: { answer: string; answeredAt?: string | null }
 ): Promise<void> {
-	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
-		method: 'PATCH',
-		headers: headers(env),
-		body: JSON.stringify({
-			answer: data.answer,
-			answered_at: data.answeredAt ?? new Date().toISOString(),
-			answer_deleted_at: null
-		})
-	});
+	void env;
+	void id;
+	void data;
 }
 
 export async function markAnswerMissingFromPds(env: Env, id: string): Promise<void> {
@@ -541,10 +501,7 @@ export async function markAnswerMissingFromPds(env: Env, id: string): Promise<vo
 		method: 'PATCH',
 		headers: headers(env),
 		body: JSON.stringify({
-			answer: null,
-			answered_at: null,
-			answer_record_uri: null,
-			answer_deleted_at: new Date().toISOString()
+			answer_record_uri: null
 		})
 	});
 }

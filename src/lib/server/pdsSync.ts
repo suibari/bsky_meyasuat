@@ -32,7 +32,7 @@
 //     本文は一切書き換えない。
 // =============================================================================
 
-import { getRecordByAtUri, listRecordsByRepo, parseAtUri } from '$lib/server/atproto.js';
+import { getRecordByAtUri, listRecordsByRepo, parseAtUri, type PdsListedRecord } from '$lib/server/atproto.js';
 import type { Message } from '$lib/server/db.js';
 import {
 	createMessageFromPds,
@@ -42,7 +42,6 @@ import {
 	getUserByDid,
 	markAnswerMissingFromPds,
 	pruneAnsweredContent,
-	reconcileAnswerFromPds,
 	reconcileQuestionFromPds,
 	updateMessageAnswerRef,
 	updateMessageQuestionRef
@@ -130,7 +129,7 @@ async function ingestQuestionCreatesFromPds(env: Env, senderDid: string, appUrl:
 			}
 		}
 
-		if (!message || message.senderDid !== senderDid) {
+		if (!message || (message.senderDid && message.senderDid !== senderDid)) {
 			logSkippedRecord('question-owner-mismatch', rec.uri, {
 				messageId,
 				expectedSenderDid: senderDid,
@@ -152,14 +151,14 @@ async function ingestQuestionCreatesFromPds(env: Env, senderDid: string, appUrl:
 		// 関わらず未確定なら確定させる。reconcileMessageWithPds の削除検知・
 		// questionRef.cid突合はこのuriを前提にしている。
 		if (message.questionRecordUri !== rec.uri) {
-			const updated = await updateMessageQuestionRef(env, message.id, senderDid, rec.uri);
+			const updated = await updateMessageQuestionRef(env, message.id, rec.uri);
 			if (updated) changed = true;
 		}
 
 		// 回答済みの質問は本文が凍結済み：回答レコード自身の question スナップショットが
 		// 正となるため、送信者側の以後の編集はここでは反映しない。
-		// （answeredAtで判定する。answerは剪定後に空文字列になり得るためfalsy判定に使えない）
-		if (message.answeredAt) {
+		// （answerRecordUriで判定する。answer/answered_atはDBに保持しないため使えない）
+		if (message.answerRecordUri) {
 			continue;
 		}
 
@@ -209,8 +208,6 @@ async function ingestAnswerCreatesFromPds(env: Env, creatorDid: string, appUrl: 
 				body: questionText,
 				senderDid: subjectDid,
 				questionRecordUri: questionRefUri,
-				answer: answerText,
-				answeredAt: createdAt,
 				answerRecordUri: rec.uri
 			});
 			if (message) changed = true;
@@ -239,13 +236,6 @@ async function ingestAnswerCreatesFromPds(env: Env, creatorDid: string, appUrl: 
 			// Phase 5でDBの本文キャッシュを既に剪定済み。PDSが正であり続けるため
 			// ここで再キャッシュ（復元）してしまうと剪定が無意味になる。
 			continue;
-		}
-		if (message.answer !== answerText || message.answerDeletedAt) {
-			await reconcileAnswerFromPds(env, message.id, {
-				answer: answerText,
-				answeredAt: createdAt ?? message.answeredAt
-			});
-			changed = true;
 		}
 	}
 
@@ -325,6 +315,130 @@ export async function countVisibleUnread(env: Env, creatorDid: string): Promise<
 	return visible.length;
 }
 
+function messageFromAnswerRecord(rec: PdsListedRecord, stored: Message | null, appUrl: string): Message | null {
+	const parsed = parseAtUri(rec.uri);
+	if (!parsed) return null;
+	const answerText = asString(rec.value.answer);
+	const questionText = asString(rec.value.question);
+	const createdAt = asString(rec.value.createdAt);
+	const messageId = parseMessageIdFromUrl(asString(rec.value.url), appUrl);
+	if (!answerText || !questionText || !createdAt || !messageId) return null;
+
+	const questionRef = rec.value.questionRef as { uri?: unknown } | undefined;
+	const questionRefUri = asString(questionRef?.uri);
+	const questionRepo = questionRefUri ? parseAtUri(questionRefUri)?.repo ?? null : null;
+	const subjectDid = asDid(rec.value.subject);
+
+	return {
+		id: messageId,
+		creatorDid: parsed.repo,
+		body: questionText,
+		imageKeys: stored?.imageKeys ?? [],
+		isRead: stored?.isRead ?? true,
+		createdAt: stored?.createdAt ?? createdAt,
+		answer: answerText,
+		answeredAt: createdAt,
+		senderDid: questionRepo ?? subjectDid,
+		questionRecordUri: questionRefUri,
+		answerRecordUri: rec.uri
+	};
+}
+
+export async function getAnsweredMessagesFromPds(
+	env: Env,
+	creatorDid: string,
+	appUrl: string,
+	opts: { limit?: number; offset?: number; excludeId?: string } = {}
+): Promise<Message[]> {
+	const { limit = 10, offset = 0, excludeId } = opts;
+	const fetchLimit = Math.min(100, Math.max(limit + offset + 20, limit));
+	const records = await listRecordsByRepo(creatorDid, 'com.suibari.meyasuat.answer', fetchLimit);
+	const sorted = records.sort((a, b) => {
+		const at = asString(a.value.createdAt) ?? '';
+		const bt = asString(b.value.createdAt) ?? '';
+		return bt.localeCompare(at);
+	});
+	const out: Message[] = [];
+	for (const rec of sorted) {
+		const messageId = parseMessageIdFromUrl(asString(rec.value.url), appUrl);
+		if (!messageId || messageId === excludeId) continue;
+		const stored = await getMessageById(env, messageId);
+		const message = messageFromAnswerRecord(rec, stored, appUrl);
+		if (message) out.push(message);
+	}
+	return out.slice(offset, offset + limit);
+}
+
+export async function getSentMessagesFromPds(
+	env: Env,
+	senderDid: string,
+	appUrl: string,
+	opts: { limit?: number; offset?: number } = {}
+): Promise<Message[]> {
+	const { limit = 20, offset = 0 } = opts;
+	const fetchLimit = Math.min(100, Math.max(limit + offset + 20, limit));
+	const records = await listRecordsByRepo(senderDid, 'com.suibari.meyasuat.question', fetchLimit);
+	const sorted = records.sort((a, b) => {
+		const at = asString(a.value.createdAt) ?? '';
+		const bt = asString(b.value.createdAt) ?? '';
+		return bt.localeCompare(at);
+	});
+	const out: Message[] = [];
+	for (const rec of sorted) {
+		const text = asString(rec.value.text);
+		const subjectDid = asDid(rec.value.subject);
+		const createdAt = asString(rec.value.createdAt);
+		const messageId = parseMessageIdFromUrl(asString(rec.value.url), appUrl);
+		if (!text || !subjectDid || !createdAt || !messageId) continue;
+		const stored = await getMessageById(env, messageId);
+		out.push({
+			id: messageId,
+			creatorDid: subjectDid,
+			body: text,
+			imageKeys: stored?.imageKeys ?? [],
+			isRead: stored?.isRead ?? false,
+			createdAt,
+			answer: null,
+			answeredAt: null,
+			senderDid,
+			questionRecordUri: rec.uri,
+			answerRecordUri: stored?.answerRecordUri ?? null
+		});
+	}
+	return out.slice(offset, offset + limit);
+}
+
+export type ResolvedQuestionContent = {
+	body: string;
+	imageUrls: string[];
+	senderDid: string | null;
+};
+
+export async function resolveQuestionContent(message: Message): Promise<ResolvedQuestionContent | null> {
+	if (!message.questionRecordUri) {
+		const imageUrls = message.imageKeys.length > 0 ? message.imageKeys.map((k) => r2KeyToUrl(k)) : [];
+		return { body: message.body, imageUrls, senderDid: null };
+	}
+
+	try {
+		const question = await getRecordByAtUri(message.questionRecordUri);
+		if (!question.found || !question.value) return null;
+		const body = asString(question.value.text) ?? message.body;
+		const imageUrls = extractImageUrlsFromQuestionRecordValue(message.questionRecordUri, question.value);
+		return {
+			body,
+			imageUrls,
+			senderDid: parseAtUri(message.questionRecordUri)?.repo ?? null
+		};
+	} catch (e) {
+		logSkippedRecord('question-content-resolve-failed', message.questionRecordUri, {
+			messageId: message.id,
+			error: e instanceof Error ? e.message : String(e)
+		});
+		return null;
+	}
+}
+
 export type ResolvedAnsweredContent = {
 	body: string;
 	answer: string;
@@ -352,13 +466,7 @@ export type ResolvedAnsweredContent = {
  * 戻り値が null の場合、呼び出し側は一覧からこのメッセージを除外する。
  */
 export async function resolveAnsweredContent(env: Env, message: Message): Promise<ResolvedAnsweredContent | null> {
-	if (!message.answeredAt) return null;
-
-	if (!message.answerRecordUri) {
-		// PDSへの書き込みが過去に失敗したレガシーデータ。DBキャッシュのみが正。
-		const imageUrls = message.imageKeys.length > 0 ? message.imageKeys.map((k) => r2KeyToUrl(k)) : [];
-		return { body: message.body, answer: message.answer ?? '', imageUrls };
-	}
+	if (!message.answerRecordUri) return null;
 
 	const answerRecord = await getRecordByAtUri(message.answerRecordUri);
 	if (answerRecord.notFound) {

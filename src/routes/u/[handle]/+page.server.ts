@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { getUserByHandle, getAnsweredMessages } from '$lib/server/db.js';
+import { getUserByHandle } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import { getAnsweredMessagesFromPds, ingestCreatesFromPdsForUser, reconcileMessagesWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { isTurnstileEnabled } from '$lib/server/turnstile.js';
 
 export const load: PageServerLoad = async ({ params, platform, url }) => {
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
 
 	const answeredMessages = env
-		? await getAnsweredMessages(env, user.did, { limit: 10, offset: page * 10 })
+		? await getAnsweredMessagesFromPds(env, user.did, appUrl, { limit: 10, offset: page * 10 })
 		: [];
 
 	if (env) {
