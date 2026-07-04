@@ -41,6 +41,7 @@
 	"submit.error.signin_required": "You need to sign in to send a message to this box.",
 	"submit.error.server": "A server error occurred",
 	"submit.char_count": "{count} / 10000",
+	"submit.template_label": "Not sure what to ask? Pick a category",
 	"dashboard.title": "Meyasubako",
 	"dashboard.page_title": "Your {box}",
 	"dashboard.empty": "No messages yet",

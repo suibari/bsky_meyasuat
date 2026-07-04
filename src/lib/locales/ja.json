@@ -41,6 +41,7 @@
 	"submit.error.signin_required": "この質問箱に送るにはサインインが必要です",
 	"submit.error.server": "サーバーエラーが発生しました",
 	"submit.char_count": "{count} / 10000",
+	"submit.template_label": "文章に困ったら、カテゴリを選んでね",
 	"dashboard.title": "めやすばこ",
 	"dashboard.page_title": "あなた の {box}",
 	"dashboard.empty": "まだメッセージはありません",

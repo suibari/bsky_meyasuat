@@ -4,6 +4,7 @@
 	import { Turnstile } from 'svelte-turnstile';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
+	import QuestionTemplatePicker from '$lib/components/QuestionTemplatePicker.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -236,6 +237,8 @@
 					{body.length} / {MAX_CHARS}
 				</p>
 			</div>
+
+			<QuestionTemplatePicker bind:value={body} />
 
 			<!-- 画像 -->
 			<div class="mb-4">
