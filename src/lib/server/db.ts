@@ -33,7 +33,6 @@ export type Message = {
 	senderDid: string | null;
 	questionRecordUri: string | null;
 	answerRecordUri: string | null;
-	senderDeletedAt: string | null;
 	answerDeletedAt: string | null;
 };
 
@@ -99,7 +98,6 @@ function toMessage(row: Record<string, unknown>): Message {
 		senderDid: (row.sender_did as string | null) ?? null,
 		questionRecordUri: (row.question_record_uri as string | null) ?? null,
 		answerRecordUri: (row.answer_record_uri as string | null) ?? null,
-		senderDeletedAt: (row.sender_deleted_at as string | null) ?? null,
 		answerDeletedAt: (row.answer_deleted_at as string | null) ?? null
 	};
 }
@@ -229,7 +227,7 @@ export async function getMessages(
 	opts: { limit?: number; offset?: number; unreadOnly?: boolean; readOnly?: boolean } = {}
 ): Promise<Message[]> {
 	const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&sender_deleted_at=is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	if (unreadOnly) url += '&is_read=eq.false&answer=is.null';
 	if (readOnly) url += '&is_read=eq.true&answer=is.null';
 	const res = await fetch(url, { headers: headers(env) });
@@ -356,7 +354,7 @@ export async function getAnsweredMessages(
 	opts: { limit?: number; offset?: number; excludeId?: string } = {}
 ): Promise<Message[]> {
 	const { limit = 10, offset = 0, excludeId } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&sender_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
+	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer=not.is.null&answer_deleted_at=is.null&order=answered_at.desc&limit=${limit}&offset=${offset}`;
 	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
@@ -382,7 +380,7 @@ export async function getSentMessages(
 	opts: { limit?: number; offset?: number } = {}
 ): Promise<Message[]> {
 	const { limit = 20, offset = 0 } = opts;
-	const url = `${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&sender_deleted_at=is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
+	const url = `${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
 	const res = await fetch(url, { headers: headers(env) });
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];
@@ -417,14 +415,9 @@ export async function updateMessageQuestionRef(
 
 export async function deleteQuestionForSender(env: Env, id: string, senderDid: string): Promise<boolean> {
 	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}`,
+		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}&select=id`,
 		{
-			method: 'PATCH',
-			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({
-				question_record_uri: null,
-				sender_deleted_at: new Date().toISOString()
-			})
+			headers: headers(env)
 		}
 	);
 	if (!res.ok) return false;
@@ -461,27 +454,9 @@ export async function getCreatorImageKeys(env: Env, creatorDid: string): Promise
 	return rows.flatMap((row) => row.image_keys ?? []);
 }
 
-// 自分が他人の箱へ送った質問を送信者側だけ切り離す。相手(creator)の回答データは
-// 同じ行に残るため巻き込まない。sender_deleted_at をセットすることで各一覧の
-// フィルタ(sender_deleted_at=is.null)から除外される。
-export async function detachSentQuestions(env: Env, senderDid: string): Promise<void> {
-	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?sender_did=eq.${encodeURIComponent(senderDid)}&sender_deleted_at=is.null`,
-		{
-			method: 'PATCH',
-			headers: { ...headers(env), Prefer: 'return=minimal' },
-			body: JSON.stringify({
-				question_record_uri: null,
-				sender_deleted_at: new Date().toISOString()
-			})
-		}
-	);
-	if (!res.ok) await throwPostgrestError(res, 'detachSentQuestions');
-}
-
 // 箱本体(users)と、それに紐づくデータを全削除する。creator_did=自分 のメッセージ、
 // rate_limit_log、sessions、users の順に子から親へ削除する。
-// R2画像と送信質問のdetachは呼び出し側(エンドポイント)で事前に処理する。
+// R2画像削除は呼び出し側(エンドポイント)で事前に処理する。
 export async function deleteBoxAndRelatedData(env: Env, did: string): Promise<void> {
 	const deletes: [string, string][] = [
 		[`messages?creator_did=eq.${encodeURIComponent(did)}`, 'deleteBoxMessages'],
@@ -507,8 +482,7 @@ export async function reconcileQuestionFromPds(
 		method: 'PATCH',
 		headers: headers(env),
 		body: JSON.stringify({
-			body: data.body,
-			sender_deleted_at: null
+			body: data.body
 		})
 	});
 }
@@ -540,17 +514,6 @@ export async function markAnswerMissingFromPds(env: Env, id: string): Promise<vo
 			answer_deleted_at: new Date().toISOString()
 		})
 	});
-}
-
-export async function countUnread(env: Env, creatorDid: string): Promise<number> {
-	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&is_read=eq.false&answer=is.null&sender_deleted_at=is.null&select=id`,
-		{
-			headers: { ...headers(env), Prefer: 'count=exact' }
-		}
-	);
-	const count = res.headers.get('Content-Range')?.split('/')[1];
-	return count ? parseInt(count, 10) : 0;
 }
 
 export async function checkRateLimit(

@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
-import { reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import { isQuestionVisibleFromPds, reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
@@ -11,8 +11,6 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 
 	let message = await getMessageById(env, params.messageId);
 	if (!message) error(404, 'Message not found');
-	// 送信者が削除した質問は一覧同様に非公開扱いとし、パーマリンク直アクセスでも表示しない
-	if (message.senderDeletedAt) error(404, 'Message not found');
 
 	const syncTask = reconcileMessageWithPds(env, message);
 	if (ctx) {
@@ -24,9 +22,11 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	// 回答済みならPDSのanswerレコードをread-throughで正とする。フレッシュな取り下げ・
 	// 回答削除の検知もここで行われる（nullなら表示すべき内容が無い＝404）。
 	let resolvedContent: { body: string; answer: string; imageUrls: string[] } | null = null;
-	if (message.answer) {
+	if (message.answeredAt) {
 		resolvedContent = await resolveAnsweredContent(env, message);
 		if (!resolvedContent) error(404, 'Message not found');
+	} else if (!(await isQuestionVisibleFromPds(message))) {
+		error(404, 'Message not found');
 	}
 
 	const creator = await getUserByDid(env, message.creatorDid);

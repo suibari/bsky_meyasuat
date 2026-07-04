@@ -36,6 +36,7 @@ import { getRecordByAtUri, listRecordsByRepo, parseAtUri } from '$lib/server/atp
 import type { Message } from '$lib/server/db.js';
 import {
 	createMessageFromPds,
+	getMessages,
 	getMessageById,
 	getMessageByQuestionRecordUri,
 	getUserByDid,
@@ -163,7 +164,7 @@ async function ingestQuestionCreatesFromPds(env: Env, senderDid: string, appUrl:
 		}
 
 		// 未回答の間は常に最新のPDS内容へ追従する（凍結する理由がまだ無いため）。
-		if (message.body !== text || message.senderDeletedAt) {
+		if (message.body !== text) {
 			await reconcileQuestionFromPds(env, message.id, { body: text });
 			changed = true;
 		}
@@ -290,6 +291,40 @@ export async function reconcileMessagesWithPds(env: Env, messages: Message[]): P
 	return results.some((r) => r.status === 'fulfilled' && r.value);
 }
 
+/**
+ * 未回答インボックス・送信済み一覧の質問表示可否をPDSのライブ状態から判定する。
+ *
+ * 匿名質問は送信者repoが存在しないためDB行が正。記名質問でも古い行で
+ * question_record_uri が無い場合は、確認対象が無いので従来通り表示する。
+ * question_record_uri がある記名質問だけPDSへ問い合わせ、404なら取り下げ済みとして
+ * 表示しない。取得失敗は保守的に非表示にする。
+ */
+export async function isQuestionVisibleFromPds(message: Message): Promise<boolean> {
+	if (!message.senderDid || !message.questionRecordUri) return true;
+
+	try {
+		const question = await getRecordByAtUri(message.questionRecordUri);
+		return question.found;
+	} catch (e) {
+		logSkippedRecord('question-live-check-failed', message.questionRecordUri, {
+			messageId: message.id,
+			error: e instanceof Error ? e.message : String(e)
+		});
+		return false;
+	}
+}
+
+export async function filterMessagesByLiveQuestion(messages: Message[]): Promise<Message[]> {
+	const visible = await Promise.all(messages.map((m) => isQuestionVisibleFromPds(m)));
+	return messages.filter((_, i) => visible[i]);
+}
+
+export async function countVisibleUnread(env: Env, creatorDid: string): Promise<number> {
+	const unread = await getMessages(env, creatorDid, { unreadOnly: true, limit: 1000 });
+	const visible = await filterMessagesByLiveQuestion(unread);
+	return visible.length;
+}
+
 export type ResolvedAnsweredContent = {
 	body: string;
 	answer: string;
@@ -304,9 +339,8 @@ export type ResolvedAnsweredContent = {
  * - 404（取り下げ済み）→ 表示しない
  * - cid不一致（回答後に質問が書き換えられた＝改ざん）→ 表示しない
  * - 一致 → ライブの内容をそのまま表示（回答時点から変わっていないことが保証される）
- * この3値判定に統一したことで、取り下げの持続的なDBフラグ（sender_deleted_at）を
- * 表示判定のためだけに持つ必要が無くなる。取り下げも改ざんも「表示しない」という
- * 同じ結果になるため、区別して記録する意味が無い。
+ * この3値判定に統一したことで、取り下げの持続的なDBフラグは不要になる。
+ * 取り下げも改ざんも「表示しない」という同じ結果になるため、区別して記録する意味が無い。
  *
  * 【匿名質問】送信者にrepoが無くライブ確認できないため、回答レコード自身の
  * question フィールド（回答時点のスナップショット）が唯一の情報源となる。

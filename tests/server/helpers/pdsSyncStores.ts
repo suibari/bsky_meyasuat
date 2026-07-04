@@ -59,7 +59,6 @@ export function seedMessage(
 		senderDid: partial.senderDid ?? null,
 		questionRecordUri: partial.questionRecordUri ?? null,
 		answerRecordUri: partial.answerRecordUri ?? null,
-		senderDeletedAt: partial.senderDeletedAt ?? null,
 		answerDeletedAt: partial.answerDeletedAt ?? null
 	};
 	messages.set(full.id, full);
@@ -126,6 +125,21 @@ export const fakeDb = {
 	async getMessageById(_env: Env, id: string): Promise<Message | null> {
 		const m = messages.get(id);
 		return m ? { ...m } : null;
+	},
+
+	async getMessages(
+		_env: Env,
+		creatorDid: string,
+		opts: { limit?: number; offset?: number; unreadOnly?: boolean; readOnly?: boolean } = {}
+	): Promise<Message[]> {
+		const { limit = 20, offset = 0, unreadOnly = false, readOnly = false } = opts;
+		const rows = [...messages.values()]
+			.filter((m) => m.creatorDid === creatorDid)
+			.filter((m) => !unreadOnly || (!m.isRead && m.answer === null))
+			.filter((m) => !readOnly || (m.isRead && m.answer === null))
+			.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+			.slice(offset, offset + limit);
+		return rows.map((m) => ({ ...m }));
 	},
 
 	async getMessageByQuestionRecordUri(_env: Env, uri: string): Promise<Message | null> {
@@ -210,7 +224,6 @@ export const fakeDb = {
 		const m = messages.get(id);
 		if (!m) return;
 		m.body = data.body;
-		m.senderDeletedAt = null;
 	},
 
 	async reconcileAnswerFromPds(

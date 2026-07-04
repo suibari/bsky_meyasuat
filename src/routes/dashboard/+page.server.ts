@@ -1,6 +1,13 @@
 import type { PageServerLoad } from './$types';
-import { getMessages, getAnsweredMessages, getSentMessages, countUnread, getUserByDid } from '$lib/server/db.js';
-import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import type { Message } from '$lib/server/db.js';
+import { getMessages, getAnsweredMessages, getSentMessages, getUserByDid } from '$lib/server/db.js';
+import {
+	countVisibleUnread,
+	filterMessagesByLiveQuestion,
+	ingestCreatesFromPdsForUser,
+	reconcileMessagesWithPds,
+	resolveAnsweredContent
+} from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
@@ -22,21 +29,25 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 				: 'unread';
 	const limit = 20;
 
-	const loadMessages = async () => Promise.all([
-		env
-			? tab === 'answered'
-				? getAnsweredMessages(env, user.did, { limit, offset: page * limit })
-				: tab === 'sent'
-					? getSentMessages(env, user.did, { limit, offset: page * limit })
-					: getMessages(env, user.did, {
-							limit,
-							offset: page * limit,
-							unreadOnly: tab === 'unread',
-							readOnly: tab === 'read'
-						})
-			: [],
-		env ? countUnread(env, user.did) : 0
-	] as const);
+	const loadMessages = async () => {
+		if (!env) return [[] as Message[], 0] as const;
+
+		const rawMessages = tab === 'answered'
+			? await getAnsweredMessages(env, user.did, { limit, offset: page * limit })
+			: tab === 'sent'
+				? await getSentMessages(env, user.did, { limit, offset: page * limit })
+				: await getMessages(env, user.did, {
+						limit,
+						offset: page * limit,
+						unreadOnly: tab === 'unread',
+						readOnly: tab === 'read'
+					});
+		const messages = tab === 'answered'
+			? rawMessages
+			: await filterMessagesByLiveQuestion(rawMessages);
+		const unreadCount = await countVisibleUnread(env, user.did);
+		return [messages, unreadCount] as const;
+	};
 
 	const [messages, unreadCount] = await loadMessages();
 	if (env) {

@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
-import { getCreatorImageKeys, detachSentQuestions, deleteBoxAndRelatedData } from '$lib/server/db.js';
+import { getCreatorImageKeys, deleteBoxAndRelatedData } from '$lib/server/db.js';
 import { deleteManyFromR2 } from '$lib/server/r2.js';
 import { cookieName, clearCookieOptions } from '$lib/server/session.js';
 
@@ -17,13 +17,12 @@ export const DELETE: RequestHandler = async ({ locals, platform }) => {
 	const imageKeys = await getCreatorImageKeys(env, did);
 	await deleteManyFromR2(env, imageKeys);
 
-	// 2. 自分が他人の箱へ送った質問を送信者側だけ切り離す（相手の回答は残す）
-	await detachSentQuestions(env, did);
-
-	// 3. 箱本体と関連データ（受信メッセージ・rate_limit_log・sessions・users）を削除
+	// 2. 箱本体と関連データ（受信メッセージ・rate_limit_log・sessions・users）を削除
+	// 自分が他人の箱へ送った質問は、クライアント側でPDSレコードを削除済みにする。
+	// 相手側の一覧では question_record_uri のライブ404判定により非表示になる。
 	await deleteBoxAndRelatedData(env, did);
 
-	// 4. セッションCookieをクリアして返す
+	// 3. セッションCookieをクリアして返す
 	const headers = new Headers();
 	headers.set('Set-Cookie', `${cookieName()}=; ${clearCookieOptions()}`);
 	return json({ ok: true }, { headers });

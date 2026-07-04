@@ -18,10 +18,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('$lib/server/db.js', async () => (await import('./helpers/pdsSyncStores')).fakeDb);
 vi.mock('$lib/server/atproto.js', async () => (await import('./helpers/pdsSyncStores')).fakeAtproto);
 
-import { ingestCreatesFromPdsForUser, reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import {
+	countVisibleUnread,
+	filterMessagesByLiveQuestion,
+	ingestCreatesFromPdsForUser,
+	isQuestionVisibleFromPds,
+	reconcileMessageWithPds,
+	resolveAnsweredContent
+} from '$lib/server/pdsSync.js';
 import {
 	getStoredMessage,
 	nextCid,
+	removeRecord,
 	resetStores,
 	seedMessage,
 	seedPdsRecord,
@@ -57,7 +65,7 @@ let warnSpy: ReturnType<typeof vi.spyOn>;
 
 function tamperReasonLogged(reason: string): boolean {
 	return warnSpy.mock.calls.some(
-		([msg, details]) =>
+		([msg, details]: unknown[]) =>
 			msg === '[pds-sync] skipped record' &&
 			(details as { reason?: string } | undefined)?.reason === reason
 	);
@@ -422,6 +430,54 @@ describe('resolveAnsweredContent: 回答済み一覧のPDS read-through', () => 
 
 		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
 		expect(resolved?.imageUrls).toEqual(['/api/images/messages/2026/01/abc-0.jpg']);
+	});
+});
+
+// ---- 未回答/送信済み質問のライブ判定 ----------------------------------------
+describe('未回答/送信済み質問のPDSライブ判定', () => {
+	it('匿名質問はPDS質問レコード無しでも表示対象になる', async () => {
+		currentId = newMessageId();
+		seedMessage({ id: currentId, creatorDid: CREATOR, body: '匿名の質問', senderDid: null });
+
+		await expect(isQuestionVisibleFromPds(getStoredMessage(currentId)!)).resolves.toBe(true);
+	});
+
+	it('記名質問でPDS質問レコードが存在する場合は表示対象になる', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '記名の質問',
+			senderDid: SENDER,
+			questionRecordUri: questionUri()
+		});
+		seedQuestionRecord('記名の質問', nextCid());
+
+		await expect(isQuestionVisibleFromPds(getStoredMessage(currentId)!)).resolves.toBe(true);
+	});
+
+	it('記名質問でPDS質問レコードが404の場合は一覧と未読数から除外される', async () => {
+		const anonymousId = newMessageId();
+		const namedId = newMessageId();
+		seedMessage({ id: anonymousId, creatorDid: CREATOR, body: '匿名の質問', senderDid: null });
+		seedMessage({
+			id: namedId,
+			creatorDid: CREATOR,
+			body: '取り下げ済みの記名質問',
+			senderDid: SENDER,
+			questionRecordUri: questionUri()
+		});
+		currentId = namedId;
+		seedQuestionRecord('取り下げ前の記名質問', nextCid());
+		removeRecord(questionUri());
+
+		const filtered = await filterMessagesByLiveQuestion([
+			getStoredMessage(anonymousId)!,
+			getStoredMessage(namedId)!
+		]);
+
+		expect(filtered.map((m) => m.id)).toEqual([anonymousId]);
+		await expect(countVisibleUnread(env, CREATOR)).resolves.toBe(1);
 	});
 });
 
