@@ -338,22 +338,6 @@ export async function deleteQuestionForSender(env: Env, id: string, senderDid: s
 	return rows.length > 0;
 }
 
-export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: string): Promise<boolean> {
-	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
-		{
-			method: 'PATCH',
-			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({
-				answer_record_uri: null
-			})
-		}
-	);
-	if (!res.ok) return false;
-	const rows = await res.json() as unknown[];
-	return rows.length > 0;
-}
-
 export async function getCreatorImageKeys(env: Env, creatorDid: string): Promise<string[]> {
 	const res = await fetch(
 		`${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&select=image_keys`,

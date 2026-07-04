@@ -1,7 +1,8 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
-import { getMessageById, answerMessage, deleteAnswerForCreator, PostgrestError } from '$lib/server/db.js';
+import { getMessageById, answerMessage, deleteMessage, PostgrestError } from '$lib/server/db.js';
 import { getRecordByAtUri } from '$lib/server/atproto.js';
+import { deleteManyFromR2 } from '$lib/server/r2.js';
 
 export const POST: RequestHandler = async ({ params, locals, platform, request }) => {
 	const env = platform?.env;
@@ -54,8 +55,10 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 		}
 	}
 
-	const ok = await deleteAnswerForCreator(env, params.id, locals.user.did);
-	if (!ok) error(500, 'Failed to delete answer');
+	if (!message.senderDid && message.imageKeys.length > 0) {
+		await deleteManyFromR2(env, message.imageKeys);
+	}
+	await deleteMessage(env, message.id, locals.user.did);
 
 	return json({ ok: true });
 };
