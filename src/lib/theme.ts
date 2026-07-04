@@ -13,9 +13,6 @@ export type OgTextSet = {
 
 export type OgTheme = {
 	id: string;
-	category: 'feminine' | 'masculine' | 'other';
-	labelJa: string;
-	labelEn: string;
 	swatch: string;
 	flat: { background: string } & OgTextSet;
 	photo: { overlayColor: string; overlayOpacity: number; gradientColor: string } & OgTextSet;
@@ -41,9 +38,6 @@ const PHOTO_TEXT: OgTextSet = {
 export const OG_THEMES: OgTheme[] = [
 	{
 		id: 'sky',
-		category: 'masculine',
-		labelJa: 'デフォルト',
-		labelEn: 'Default',
 		swatch: '#0ea5e9',
 		// og.ts の従来ハードコード値と完全一致させ、未設定ユーザーの見た目を変えない
 		flat: {
@@ -63,30 +57,24 @@ export const OG_THEMES: OgTheme[] = [
 	},
 	{
 		id: 'navy',
-		category: 'masculine',
-		labelJa: 'ネイビー',
-		labelEn: 'Navy',
-		swatch: '#1e3a5f',
+		swatch: '#2563eb',
 		flat: {
-			background: '#0f172a',
-			heading: '#38bdf8',
-			headline: '#f1f5f9',
-			muted: '#94a3b8',
-			headerText: '#cbd5e1',
-			logoTitle: '#38bdf8',
-			logoDomain: '#64748b',
-			avatarFallbackBg: '#1e293b',
-			avatarFallbackFg: '#7dd3fc',
-			avatarFallbackBgAlt: '#1e293b',
-			avatarFallbackFgAlt: '#7dd3fc'
+			background: '#eff6ff',
+			heading: '#1d4ed8',
+			headline: '#172554',
+			muted: '#1e40af',
+			headerText: '#2563eb',
+			logoTitle: '#2563eb',
+			logoDomain: '#93c5fd',
+			avatarFallbackBg: '#dbeafe',
+			avatarFallbackFg: '#1d4ed8',
+			avatarFallbackBgAlt: '#bfdbfe',
+			avatarFallbackFgAlt: '#1e3a8a'
 		},
-		photo: { overlayColor: '#0f172a', overlayOpacity: 0.45, gradientColor: '#0f172a', ...PHOTO_TEXT }
+		photo: { overlayColor: '#172554', overlayOpacity: 0.45, gradientColor: '#172554', ...PHOTO_TEXT }
 	},
 	{
 		id: 'slate',
-		category: 'masculine',
-		labelJa: 'スレート',
-		labelEn: 'Slate',
 		swatch: '#64748b',
 		flat: {
 			background: '#f1f5f9',
@@ -105,31 +93,25 @@ export const OG_THEMES: OgTheme[] = [
 	},
 	{
 		id: 'pink',
-		category: 'feminine',
-		labelJa: 'ピンク',
-		labelEn: 'Pink',
-		swatch: '#ec4899',
+		swatch: '#e11d48',
 		flat: {
-			background: '#fff1f5',
-			heading: '#db2777',
-			headline: '#831843',
-			muted: '#9d174d',
-			headerText: '#be185d',
-			logoTitle: '#db2777',
-			logoDomain: '#f472b6',
-			avatarFallbackBg: '#fce7f3',
-			avatarFallbackFg: '#db2777',
-			avatarFallbackBgAlt: '#fbcfe8',
-			avatarFallbackFgAlt: '#9d174d'
+			background: '#fff1f2',
+			heading: '#e11d48',
+			headline: '#881337',
+			muted: '#be123c',
+			headerText: '#e11d48',
+			logoTitle: '#e11d48',
+			logoDomain: '#fb7185',
+			avatarFallbackBg: '#ffe4e6',
+			avatarFallbackFg: '#e11d48',
+			avatarFallbackBgAlt: '#fecdd3',
+			avatarFallbackFgAlt: '#9f1239'
 		},
-		photo: { overlayColor: '#831843', overlayOpacity: 0.45, gradientColor: '#831843', ...PHOTO_TEXT }
+		photo: { overlayColor: '#881337', overlayOpacity: 0.45, gradientColor: '#881337', ...PHOTO_TEXT }
 	},
 	{
 		id: 'pastel-purple',
-		category: 'feminine',
-		labelJa: 'パステルパープル',
-		labelEn: 'Pastel Purple',
-		swatch: '#a78bfa',
+		swatch: '#8b5cf6',
 		flat: {
 			background: '#f5f0ff',
 			heading: '#8b5cf6',
@@ -147,51 +129,42 @@ export const OG_THEMES: OgTheme[] = [
 	},
 	{
 		id: 'mint',
-		category: 'feminine',
-		labelJa: 'ミント',
-		labelEn: 'Mint',
-		swatch: '#34d399',
+		swatch: '#14b8a6',
 		flat: {
-			background: '#effefa',
-			heading: '#10b981',
-			headline: '#065f46',
-			muted: '#047857',
-			headerText: '#059669',
-			logoTitle: '#10b981',
-			logoDomain: '#6ee7b7',
-			avatarFallbackBg: '#d1fae5',
-			avatarFallbackFg: '#059669',
-			avatarFallbackBgAlt: '#a7f3d0',
-			avatarFallbackFgAlt: '#065f46'
+			background: '#f0fdfa',
+			heading: '#0d9488',
+			headline: '#134e4a',
+			muted: '#0f766e',
+			headerText: '#0d9488',
+			logoTitle: '#0d9488',
+			logoDomain: '#5eead4',
+			avatarFallbackBg: '#ccfbf1',
+			avatarFallbackFg: '#0f766e',
+			avatarFallbackBgAlt: '#99f6e4',
+			avatarFallbackFgAlt: '#134e4a'
 		},
-		photo: { overlayColor: '#065f46', overlayOpacity: 0.45, gradientColor: '#065f46', ...PHOTO_TEXT }
+		photo: { overlayColor: '#134e4a', overlayOpacity: 0.45, gradientColor: '#134e4a', ...PHOTO_TEXT }
 	},
 	{
 		id: 'orange',
-		category: 'other',
-		labelJa: 'オレンジ',
-		labelEn: 'Orange',
-		swatch: '#f97316',
+		swatch: '#f59e0b',
 		flat: {
-			background: '#fff7ed',
-			heading: '#ea580c',
-			headline: '#7c2d12',
-			muted: '#c2410c',
-			headerText: '#ea580c',
-			logoTitle: '#ea580c',
-			logoDomain: '#fdba74',
-			avatarFallbackBg: '#ffedd5',
-			avatarFallbackFg: '#c2410c',
-			avatarFallbackBgAlt: '#fed7aa',
-			avatarFallbackFgAlt: '#7c2d12'
+			background: '#fffbeb',
+			heading: '#d97706',
+			headline: '#78350f',
+			muted: '#b45309',
+			headerText: '#d97706',
+			logoTitle: '#d97706',
+			logoDomain: '#fbbf24',
+			avatarFallbackBg: '#fef3c7',
+			avatarFallbackFg: '#b45309',
+			avatarFallbackBgAlt: '#fde68a',
+			avatarFallbackFgAlt: '#78350f'
 		},
-		photo: { overlayColor: '#7c2d12', overlayOpacity: 0.45, gradientColor: '#7c2d12', ...PHOTO_TEXT }
+		photo: { overlayColor: '#78350f', overlayOpacity: 0.45, gradientColor: '#78350f', ...PHOTO_TEXT }
 	},
 	{
 		id: 'green',
-		category: 'other',
-		labelJa: 'グリーン',
-		labelEn: 'Green',
 		swatch: '#22c55e',
 		flat: {
 			background: '#f0fdf4',

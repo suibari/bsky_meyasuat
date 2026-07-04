@@ -26,19 +26,7 @@ export const actions: Actions = {
 		await request.formData();
 		return { saved: true };
 	},
-	saveRequireNamed: async ({ locals, request, platform }) => {
-		const env = platform?.env;
-		if (!locals.user || !env) return fail(401);
-		await request.formData();
-		return { saved: true };
-	},
-	saveBoxName: async ({ locals, request, platform }) => {
-		const env = platform?.env;
-		if (!locals.user || !env) return fail(401);
-		await request.formData();
-		return { saved: true };
-	},
-	saveOgAppearance: async ({ locals, request, platform }) => {
+	saveBoxSettings: async ({ locals, request, platform }) => {
 		const env = platform?.env;
 		if (!locals.user || !env) return fail(401);
 		await request.formData();

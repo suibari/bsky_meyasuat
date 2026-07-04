@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import type { PageData, ActionData } from './$types';
+	import type { PageData } from './$types';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -12,7 +12,7 @@
 	import { deleteAllRecordsInCollection } from '$lib/client/oauthClient.js';
 	import { DEFAULT_OG_THEME_ID } from '$lib/theme.js';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
 	function initialNotifyEnabled() {
 		return data.user.notifyEnabled;
@@ -28,17 +28,23 @@
 		return data.user.requireNamedEnabled;
 	}
 
-	let requireNamedForm: HTMLFormElement;
 	let requireNamedEnabled = $state(initialRequireNamedEnabled());
-	let requireNamedSaving = $state(false);
-	let requireNamedError = $state('');
 	let lastSavedRequireNamedEnabled = initialRequireNamedEnabled();
 
 	function initialBoxName() {
 		return data.user.boxName;
 	}
 
+	let boxName = $state(initialBoxName() ?? '');
 	let lastSavedBoxName = initialBoxName();
+
+	function initialOgColorTheme() {
+		return data.user.colorTheme ?? DEFAULT_OG_THEME_ID;
+	}
+
+	function initialBackgroundPreviewUrl() {
+		return data.backgroundImageUrl;
+	}
 
 	// 設定変更を自分のPDSへ反映する。設定の正データは config/self。
 	async function syncConfigToPds(overrides: Partial<{
@@ -65,14 +71,14 @@
 	}
 
 	// OGP見た目(カラーテーマ・背景画像)
-	let ogColorTheme = $state(data.user.colorTheme ?? DEFAULT_OG_THEME_ID);
-	let lastSavedOgColorTheme = ogColorTheme;
+	let ogColorTheme = $state(initialOgColorTheme());
+	let lastSavedOgColorTheme = initialOgColorTheme();
 	let pendingBackgroundBlob = $state<Blob | null>(null);
 	let backgroundRemoved = $state(false);
-	let backgroundPreviewUrl = $state(data.backgroundImageUrl);
-	let ogSaving = $state(false);
-	let ogError = $state('');
-	let ogSaved = $state(false);
+	let backgroundPreviewUrl = $state(initialBackgroundPreviewUrl());
+	let boxSettingsSaving = $state(false);
+	let boxSettingsError = $state('');
+	let boxSettingsSaved = $state(false);
 	let previewBoxUrl = $state<string | null>(null);
 	let previewMessageUrl = $state<string | null>(null);
 	let previewLoading = $state(false);
@@ -94,13 +100,15 @@
 		previewLoading = true;
 		try {
 			let backgroundBlob: Blob | null = pendingBackgroundBlob;
-			if (!backgroundBlob && !backgroundRemoved && data.backgroundImageUrl) {
-				if (cachedExistingBackgroundUrl !== data.backgroundImageUrl) {
+			if (!backgroundBlob && !backgroundRemoved) {
+				if (cachedExistingBackgroundBlob) {
+					backgroundBlob = cachedExistingBackgroundBlob;
+				} else if (data.backgroundImageUrl && cachedExistingBackgroundUrl !== data.backgroundImageUrl) {
 					const res = await fetch(data.backgroundImageUrl);
 					cachedExistingBackgroundBlob = res.ok ? await res.blob() : null;
 					cachedExistingBackgroundUrl = data.backgroundImageUrl;
+					backgroundBlob = cachedExistingBackgroundBlob;
 				}
-				backgroundBlob = cachedExistingBackgroundBlob;
 			}
 
 			const [boxUrl, messageUrl] = await Promise.all([
@@ -148,9 +156,15 @@
 		backgroundPreviewUrl = null;
 	}
 
-	const handleOgAppearanceSubmit: SubmitFunction = () => {
-		ogError = '';
-		ogSaving = true;
+	const handleBoxSettingsSubmit: SubmitFunction = ({ formData }) => {
+		boxSettingsError = '';
+		boxSettingsSaved = false;
+		boxSettingsSaving = true;
+		const nextBoxName = ((formData.get('box_name') as string | null)?.trim() ?? '') || null;
+		const nextRequireNamedEnabled = formData.get('require_named_enabled') === 'on';
+		const previousBoxName = lastSavedBoxName;
+		const previousRequireNamedEnabled = lastSavedRequireNamedEnabled;
+		const previousOgColorTheme = lastSavedOgColorTheme;
 		return async ({ result }) => {
 			if (result.type === 'success') {
 				try {
@@ -168,22 +182,39 @@
 						backgroundImageRef = await uploadBackgroundImageToPds(agent, pendingBackgroundBlob);
 					}
 					await syncConfigToPds({
+						boxName: nextBoxName,
+						requireNamedEnabled: nextRequireNamedEnabled,
 						colorTheme: ogColorTheme,
 						...(backgroundImageRef !== undefined ? { backgroundImage: backgroundImageRef } : {})
 					});
+					lastSavedBoxName = nextBoxName;
+					boxName = nextBoxName ?? '';
+					lastSavedRequireNamedEnabled = nextRequireNamedEnabled;
 					lastSavedOgColorTheme = ogColorTheme;
+					if (backgroundRemoved) {
+						cachedExistingBackgroundBlob = null;
+						cachedExistingBackgroundUrl = null;
+					} else if (pendingBackgroundBlob) {
+						cachedExistingBackgroundBlob = pendingBackgroundBlob;
+						cachedExistingBackgroundUrl = backgroundPreviewUrl;
+					}
 					pendingBackgroundBlob = null;
 					backgroundRemoved = false;
-					ogSaved = true;
+					boxSettingsSaved = true;
 				} catch (e) {
-					console.error('Failed to save OGP appearance', e);
+					console.error('Failed to save box settings', e);
+					boxName = previousBoxName ?? '';
+					requireNamedEnabled = previousRequireNamedEnabled;
 					ogColorTheme = lastSavedOgColorTheme;
-					ogError = $t('settings.ogp_save_error');
+					boxSettingsError = $t('settings.box_settings_save_error');
 				}
 			} else {
-				ogError = $t('settings.ogp_save_error');
+				boxName = previousBoxName ?? '';
+				requireNamedEnabled = previousRequireNamedEnabled;
+				ogColorTheme = previousOgColorTheme;
+				boxSettingsError = $t('settings.box_settings_save_error');
 			}
-			ogSaving = false;
+			boxSettingsSaving = false;
 		};
 	};
 
@@ -285,46 +316,6 @@
 		notifyForm.requestSubmit();
 	}
 
-	const handleRequireNamedSubmit: SubmitFunction = ({ formData }) => {
-		requireNamedError = '';
-		const enabling = formData.get('require_named_enabled') === 'on';
-		const previous = lastSavedRequireNamedEnabled;
-		requireNamedSaving = true;
-
-		return async ({ result }) => {
-			if (result.type === 'success') {
-				try {
-					await syncConfigToPds({ requireNamedEnabled: enabling });
-					lastSavedRequireNamedEnabled = enabling;
-				} catch {
-					requireNamedEnabled = previous;
-					requireNamedError = $t('settings.require_named_save_error');
-				}
-			} else {
-				requireNamedEnabled = previous;
-				requireNamedError = $t('settings.require_named_save_error');
-			}
-			requireNamedSaving = false;
-		};
-	};
-
-	function onRequireNamedChange() {
-		if (requireNamedSaving) return;
-		requireNamedForm.requestSubmit();
-	}
-
-	const handleBoxNameSubmit: SubmitFunction = ({ formData }) => {
-		const raw = (formData.get('box_name') as string | null)?.trim() ?? '';
-		return async ({ result, update }) => {
-			if (result.type === 'success') {
-				const nextBoxName = raw || null;
-				await syncConfigToPds({ boxName: nextBoxName }).then(() => {
-					lastSavedBoxName = nextBoxName;
-				}).catch(() => {});
-			}
-			await update();
-		};
-	};
 </script>
 
 <svelte:head>
@@ -334,103 +325,84 @@
 <div class="max-w-lg mx-auto px-4 py-8">
 	<h1 class="text-xl font-bold text-slate-100 mb-6">{$t('settings.title')}</h1>
 
-	{#if form?.saved}
-		<p class="mb-4 text-sm text-green-400 bg-green-950 rounded-lg px-3 py-2">{$t('settings.saved')}</p>
-	{/if}
-
-	<!-- めやすばこの名前 -->
+	<!-- めやすばこの設定 -->
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
-		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.box_name')}</h2>
-		<form method="POST" action="?/saveBoxName" use:enhance={handleBoxNameSubmit}>
-			<input
-				type="text"
-				name="box_name"
-				maxlength="30"
-				value={data.user.boxName ?? ''}
-				placeholder={$t('settings.box_name_placeholder')}
-				class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-			/>
-			<p class="text-xs text-slate-400 mt-1.5">{$t('settings.box_name_description')}</p>
-			<button type="submit" class="mt-4 text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
-				{$t('settings.save')}
-			</button>
-		</form>
-	</section>
+		<h2 class="font-semibold text-slate-200 mb-4">{$t('settings.box_settings')}</h2>
 
-	<!-- OGP見た目(カラーテーマ・背景画像) -->
-	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
-		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.ogp_appearance')}</h2>
-		<p class="text-xs text-slate-400 mb-4">{$t('settings.ogp_appearance_description')}</p>
-
-		<form method="POST" action="?/saveOgAppearance" use:enhance={handleOgAppearanceSubmit}>
-			<div class="mb-5">
-				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_color_theme')}</p>
-				<OgThemePicker value={ogColorTheme} onSelect={selectOgTheme} lang={data.lang as 'ja' | 'en'} />
+		<form method="POST" action="?/saveBoxSettings" use:enhance={handleBoxSettingsSubmit} class="space-y-6">
+			<div class="border-t border-slate-800 pt-5">
+				<h3 class="text-base font-semibold text-slate-200 mb-3">{$t('settings.box_name')}</h3>
+				<input
+					type="text"
+					name="box_name"
+					maxlength="30"
+					bind:value={boxName}
+					placeholder={$t('settings.box_name_placeholder')}
+					class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+				/>
+				<p class="text-xs text-slate-400 mt-1.5">{$t('settings.box_name_description')}</p>
 			</div>
 
-			<div class="mb-5">
-				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_background')}</p>
-				<OgBackgroundUploader previewUrl={backgroundPreviewUrl} onChange={onBackgroundChange} onRemove={onBackgroundRemove} />
-			</div>
+			<div class="border-t border-slate-800 pt-5">
+				<h3 class="text-base font-semibold text-slate-200 mb-1">{$t('settings.ogp_appearance')}</h3>
+				<p class="text-xs text-slate-400 mb-3">{$t('settings.ogp_appearance_description')}</p>
+				<div class="mb-5">
+					<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_color_theme')}</p>
+					<OgThemePicker value={ogColorTheme} onSelect={selectOgTheme} />
+				</div>
 
-			<div class="mb-5">
-				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_preview')}</p>
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-					<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
-						{#if previewBoxUrl}
-							<img src={previewBoxUrl} alt="" class="w-full h-full object-cover" />
-						{/if}
-						{#if previewLoading}
-							<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
-						{/if}
-					</div>
-					<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
-						{#if previewMessageUrl}
-							<img src={previewMessageUrl} alt="" class="w-full h-full object-cover" />
-						{/if}
-						{#if previewLoading}
-							<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
-						{/if}
+				<div class="mb-5">
+					<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_background')}</p>
+					<OgBackgroundUploader previewUrl={backgroundPreviewUrl} onChange={onBackgroundChange} onRemove={onBackgroundRemove} />
+				</div>
+
+				<div>
+					<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_preview')}</p>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+							{#if previewBoxUrl}
+								<img src={previewBoxUrl} alt="" class="w-full h-full object-cover" />
+							{/if}
+							{#if previewLoading}
+								<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
+							{/if}
+						</div>
+						<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+							{#if previewMessageUrl}
+								<img src={previewMessageUrl} alt="" class="w-full h-full object-cover" />
+							{/if}
+							{#if previewLoading}
+								<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>
 
-			{#if ogError}
-				<p class="mb-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{ogError}</p>
+			<div class="border-t border-slate-800 pt-5">
+				<label class="flex items-center justify-between gap-3 cursor-pointer">
+					<div>
+						<h3 class="text-base font-semibold text-slate-200">{$t('settings.require_named')}</h3>
+						<p class="text-xs text-slate-400 mt-0.5">{$t('settings.require_named_description')}</p>
+					</div>
+					<ToggleSwitch name="require_named_enabled" bind:checked={requireNamedEnabled} disabled={boxSettingsSaving} />
+				</label>
+			</div>
+
+			{#if boxSettingsError}
+				<p class="mb-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{boxSettingsError}</p>
 			{/if}
-			{#if ogSaved && !ogError}
+			{#if boxSettingsSaved && !boxSettingsError}
 				<p class="mb-3 text-xs text-green-400 bg-green-950 rounded-lg px-3 py-2">{$t('settings.saved')}</p>
 			{/if}
 			<button
 				type="submit"
-				disabled={ogSaving}
+				disabled={boxSettingsSaving}
 				class="flex items-center gap-2 text-sm bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg transition-colors"
 			>
-				{#if ogSaving}<Spinner />{/if}
+				{#if boxSettingsSaving}<Spinner />{/if}
 				{$t('settings.save')}
 			</button>
-		</form>
-	</section>
-
-	<!-- 記名必須化 -->
-	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
-		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.require_named')}</h2>
-		<form method="POST" action="?/saveRequireNamed" bind:this={requireNamedForm} use:enhance={handleRequireNamedSubmit}>
-			<label class="flex items-center justify-between gap-3 cursor-pointer">
-				<div>
-					<p class="text-sm font-medium text-slate-300">{$t('settings.require_named_enabled')}</p>
-					<p class="text-xs text-slate-400 mt-0.5">{$t('settings.require_named_description')}</p>
-				</div>
-				<div class="flex items-center gap-2">
-					{#if requireNamedSaving}
-						<Spinner />
-					{/if}
-					<ToggleSwitch name="require_named_enabled" bind:checked={requireNamedEnabled} disabled={requireNamedSaving} onchange={onRequireNamedChange} />
-				</div>
-			</label>
-			{#if requireNamedError}
-				<p class="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{requireNamedError}</p>
-			{/if}
 		</form>
 	</section>
 
