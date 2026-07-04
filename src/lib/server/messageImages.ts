@@ -15,14 +15,18 @@ function extractCid(blob: unknown): string | null {
 	return null;
 }
 
-async function resolveQuestionRecordImageUrls(questionRecordUri: string): Promise<string[]> {
+/**
+ * 質問レコードの value から画像URLを抽出する（純関数）。
+ * 一覧のread-through表示時に、既に取得済みの質問レコードから使い回すために公開している。
+ */
+export function extractImageUrlsFromQuestionRecordValue(
+	questionRecordUri: string,
+	value: Record<string, unknown> | undefined
+): string[] {
 	const parsed = parseAtUri(questionRecordUri);
-	if (!parsed) return [];
+	if (!parsed || !value) return [];
 
-	const record = await getRecordByAtUri(questionRecordUri);
-	if (!record.found || !record.value) return [];
-
-	const images = record.value.images;
+	const images = value.images;
 	if (!Array.isArray(images)) return [];
 
 	const urls: string[] = [];
@@ -34,6 +38,12 @@ async function resolveQuestionRecordImageUrls(questionRecordUri: string): Promis
 		urls.push(`https://cdn.bsky.app/img/feed_fullsize/plain/${parsed.repo}/${cid}@jpeg`);
 	}
 	return urls;
+}
+
+async function resolveQuestionRecordImageUrls(questionRecordUri: string): Promise<string[]> {
+	const record = await getRecordByAtUri(questionRecordUri);
+	if (!record.found || !record.value) return [];
+	return extractImageUrlsFromQuestionRecordValue(questionRecordUri, record.value);
 }
 
 export async function resolveMessageImageUrls(

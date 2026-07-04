@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { invalidateAll } from '$app/navigation';
 	import { navigating } from '$app/state';
@@ -10,6 +11,41 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	// 設定(config)のPDSバックフィル: config/self がまだ無い場合のみ、現在のDB設定から
+	// 作成する（既にある場合は上書きしない＝ここでの余計な書き込みを避ける）。
+	// best-effort・非ブロッキング。新スコープが無い(カットオーバー前の)セッションでは
+	// getRecord/putRecordが失敗するが、失敗はUIに一切出さない。
+	onMount(() => {
+		const user = data.user;
+		if (!user) return;
+		void (async () => {
+			try {
+				const [{ createOAuthClient, putConfigRecord }, { Agent }] = await Promise.all([
+					import('$lib/client/oauthClient.js'),
+					import('@atproto/api')
+				]);
+				const client = await createOAuthClient(data.appUrl);
+				const session = await client.restore(user.did);
+				const agent = new Agent(session);
+
+				const existing = await agent.com.atproto.repo
+					.getRecord({ repo: user.did, collection: 'com.suibari.meyasuat.config', rkey: 'self' })
+					.then(() => true)
+					.catch(() => false);
+				if (existing) return;
+
+				await putConfigRecord(data.appUrl, user.did, {
+					notifyEnabled: user.notifyEnabled,
+					shareHandleEnabled: user.shareHandleEnabled,
+					requireNamedEnabled: user.requireNamedEnabled,
+					boxName: user.boxName
+				});
+			} catch (e) {
+				console.error('Failed to backfill config record on PDS', e);
+			}
+		})();
+	});
 
 	let copied = $state(false);
 	let deleteTargetId = $state<string | null>(null);
@@ -46,10 +82,32 @@
 
 	async function recordAnswerOnPds(msg: any, answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
+			const [{ createOAuthClient, parseAtUri }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
 			const client = await createOAuthClient(data.appUrl);
 			const session = await client.restore(data.user?.did ?? '');
 			const agent = new Agent(session);
+
+			// questionRef には「回答時点」の質問cidを刻む。DBキャッシュではなく
+			// 常にその場でPDSから取得することで、回答後の質問改ざん検知の基準にする。
+			let questionRef: { uri: string; cid: string } | undefined;
+			if (msg.questionRecordUri) {
+				const parsed = parseAtUri(msg.questionRecordUri);
+				if (parsed) {
+					try {
+						const live = await agent.com.atproto.repo.getRecord({
+							repo: parsed.repo,
+							collection: parsed.collection,
+							rkey: parsed.rkey
+						});
+						if (live.data.cid) {
+							questionRef = { uri: msg.questionRecordUri, cid: live.data.cid };
+						}
+					} catch (e) {
+						console.error('Failed to fetch live question cid for questionRef', e);
+					}
+				}
+			}
+
 			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.user?.did ?? '',
 				collection: 'com.suibari.meyasuat.answer',
@@ -57,9 +115,7 @@
 					$type: 'com.suibari.meyasuat.answer',
 					...(msg.senderDid ? { subject: msg.senderDid } : {}),
 					question: msg.body,
-					...(msg.questionRecordUri && msg.questionRecordCid
-						? { questionRef: { uri: msg.questionRecordUri, cid: msg.questionRecordCid } }
-						: {}),
+					...(questionRef ? { questionRef } : {}),
 					answer,
 					url: `${data.appUrl}/u/${data.user?.handle}/m/${msg.id}`,
 					createdAt: new Date().toISOString()
@@ -69,7 +125,7 @@
 			await fetch(`/api/messages/${msg.id}/answer-ref`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ uri: created.data.uri, cid: created.data.cid })
+				body: JSON.stringify({ uri: created.data.uri })
 			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);

@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, getAnsweredMessages } from '$lib/server/db.js';
-import { reconcileMessageWithPds } from '$lib/server/pdsSync.js';
+import { reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
@@ -19,6 +19,14 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		ctx.waitUntil(syncTask);
 	} else {
 		void syncTask.catch(() => {});
+	}
+
+	// 回答済みならPDSのanswerレコードをread-throughで正とする。フレッシュな取り下げ・
+	// 回答削除の検知もここで行われる（nullなら表示すべき内容が無い＝404）。
+	let resolvedContent: { body: string; answer: string; imageUrls: string[] } | null = null;
+	if (message.answer) {
+		resolvedContent = await resolveAnsweredContent(env, message);
+		if (!resolvedContent) error(404, 'Message not found');
 	}
 
 	const creator = await getUserByDid(env, message.creatorDid);
@@ -49,12 +57,17 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		limit: 10,
 		excludeId: message.id
 	});
-	const imageUrlCache = new Map<string, string[]>();
+
+	const imageUrls = resolvedContent
+		? resolvedContent.imageUrls
+		: await resolveMessageImageUrls(env, message);
 
 	return {
 		message: {
 			...message,
-			imageUrls: await resolveMessageImageUrls(env, message, imageUrlCache),
+			body: resolvedContent?.body ?? message.body,
+			answer: resolvedContent?.answer ?? message.answer,
+			imageUrls,
 			sender: senderProfile
 		},
 		creator: {
@@ -66,13 +79,17 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		},
 		appUrl,
 		isOwner,
-		relatedQA: await Promise.all(relatedQA.map(async (m) => ({
-			id: m.id,
-			body: m.body,
-			answer: m.answer ?? '',
-			createdAt: m.createdAt,
-			answeredAt: m.answeredAt ?? '',
-			imageUrls: await resolveMessageImageUrls(env, m, imageUrlCache)
-		})))
+		relatedQA: (await Promise.all(relatedQA.map(async (m) => {
+			const resolved = await resolveAnsweredContent(env, m);
+			if (!resolved) return null;
+			return {
+				id: m.id,
+				body: resolved.body,
+				answer: resolved.answer,
+				createdAt: m.createdAt,
+				answeredAt: m.answeredAt ?? '',
+				imageUrls: resolved.imageUrls
+			};
+		}))).filter((qa): qa is NonNullable<typeof qa> => qa !== null)
 	};
 };

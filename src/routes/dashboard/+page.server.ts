@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getMessages, getAnsweredMessages, getSentMessages, countUnread, getUserByDid } from '$lib/server/db.js';
-import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds } from '$lib/server/pdsSync.js';
+import { ingestCreatesFromPdsForUser, reconcileMessagesWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
@@ -54,7 +54,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	}
 
 	const imageUrlCache = new Map<string, string[]>();
-	const enriched = await Promise.all(messages.map(async (m) => {
+	const enrichedOrNull = await Promise.all(messages.map(async (m) => {
 		let sender = null;
 		if (env && m.senderDid) {
 			const senderUser = await getUserByDid(env, m.senderDid);
@@ -81,6 +81,21 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 			}
 		}
 
+		// 回答済みタブはPDSのanswerレコードをread-throughで正とする（DBの本文キャッシュは使わない）。
+		if (tab === 'answered') {
+			if (!env) return null;
+			const resolved = await resolveAnsweredContent(env, m);
+			if (!resolved) return null;
+			return {
+				...m,
+				body: resolved.body,
+				answer: resolved.answer,
+				imageUrls: resolved.imageUrls,
+				sender,
+				creator
+			};
+		}
+
 		return {
 			...m,
 			imageUrls: env ? await resolveMessageImageUrls(env, m, imageUrlCache) : [],
@@ -88,6 +103,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 			creator
 		};
 	}));
+	const enriched = enrichedOrNull.filter((m): m is NonNullable<typeof m> => m !== null);
 
 	return {
 		messages: enriched,

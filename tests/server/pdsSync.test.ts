@@ -1,9 +1,15 @@
 // =============================================================================
-// 質問回答トランザクション／改ざん検知のテスト（ユーザーが挙げた9パターン）
+// 質問回答トランザクション／改ざん検知のテスト
 //
 // db.ts / atproto.ts をインメモリ偽実装（helpers/pdsSyncStores.ts）に差し替え、
-// pdsSync.ts の ingest / reconcile を実際に駆動して「初回cid確定 → 改ざん →
-// 本文・cidが凍結されたまま」を本文レベルで検証する。
+// pdsSync.ts の ingest / reconcile を実際に駆動して検証する。
+//
+// 改ざん検知モデル（Phase 3以降）:
+//   - 質問(送信者所有): 未回答の間は常に最新のPDS内容へ追従する（凍結なし）。
+//     回答が付いた瞬間に凍結され、以後の送信者側の編集は反映されない。
+//     回答後の書き換えは、回答レコード自身が刻む questionRef.cid と質問の
+//     現在のcidを突合することで検知する（DB側にcid台帳は持たない）。
+//   - 回答(箱主所有): 本人の編集は常に正当な変更として追従する（凍結なし）。
 // =============================================================================
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,11 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('$lib/server/db.js', async () => (await import('./helpers/pdsSyncStores')).fakeDb);
 vi.mock('$lib/server/atproto.js', async () => (await import('./helpers/pdsSyncStores')).fakeAtproto);
 
-import { ingestCreatesFromPdsForUser, reconcileMessageWithPds } from '$lib/server/pdsSync.js';
+import { ingestCreatesFromPdsForUser, reconcileMessageWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import {
 	getStoredMessage,
 	nextCid,
-	removeRecord,
 	resetStores,
 	seedMessage,
 	seedPdsRecord,
@@ -78,12 +83,16 @@ function seedQuestionRecord(text: string, cid: string): void {
 	});
 }
 
-/** 回答レコードを作成者PDSへ投入する。subject/questionRef で匿名・記名を切替。 */
+/**
+ * 回答レコードを作成者PDSへ投入する。subject/questionRef で匿名・記名を切替。
+ * questionRefCid を渡すと、回答時点の質問cidを刻んだ状態を再現できる
+ * （reconcileMessageWithPds の改ざん検知はこのcidと質問の現在cidを突合する）。
+ */
 function seedAnswerRecord(
 	answer: string,
 	question: string,
 	cid: string,
-	opts: { named: boolean }
+	opts: { named: boolean; questionRefCid?: string }
 ): void {
 	seedPdsRecord({
 		uri: answerUri(),
@@ -92,7 +101,9 @@ function seedAnswerRecord(
 			answer,
 			question,
 			subject: opts.named ? SENDER : null,
-			questionRef: opts.named ? { uri: questionUri() } : undefined,
+			questionRef: opts.named
+				? { uri: questionUri(), ...(opts.questionRefCid ? { cid: opts.questionRefCid } : {}) }
+				: undefined,
 			url: urlFor(currentId),
 			createdAt: new Date().toISOString()
 		}
@@ -115,13 +126,12 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 		expect(m.body).toBe('匿名の質問');
 		expect(m.senderDid).toBeNull();
 		expect(m.questionRecordUri).toBeNull();
-		expect(m.questionRecordCid).toBeNull();
 	});
 
 	// ---- 2. 匿名質問への回答 ----------------------------------------------
-	it('匿名質問への回答: ingestが回答レコードのcidを初回確定する', async () => {
+	it('匿名質問への回答: ingestが回答レコードのuriを初回確定する', async () => {
 		currentId = newMessageId();
-		const capturedCid = nextCid();
+		const cid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
@@ -130,7 +140,7 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 			answer: '回答です',
 			answeredAt: new Date().toISOString()
 		});
-		seedAnswerRecord('回答です', '匿名の質問', capturedCid, { named: false });
+		seedAnswerRecord('回答です', '匿名の質問', cid, { named: false });
 
 		const changed = await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
 
@@ -138,42 +148,36 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 		expect(changed).toBe(true);
 		expect(m.answer).toBe('回答です');
 		expect(m.answerRecordUri).toBe(answerUri());
-		expect(m.answerRecordCid).toBe(capturedCid);
 	});
 
-	// ---- 3. 匿名質問への回答の改ざん --------------------------------------
-	it('匿名質問への回答の改ざん: cid確定後の回答編集はブロックされ凍結される', async () => {
+	// ---- 3. 匿名質問への回答を本人が編集 -----------------------------------
+	it('匿名質問への回答: 箱主本人による編集は正当な変更として追従する', async () => {
 		currentId = newMessageId();
-		const capturedCid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
 			body: '匿名の質問',
 			senderDid: null,
-			answer: '正しい回答',
+			answer: '最初の回答',
 			answeredAt: new Date().toISOString()
 		});
-		seedAnswerRecord('正しい回答', '匿名の質問', capturedCid, { named: false });
+		seedAnswerRecord('最初の回答', '匿名の質問', nextCid(), { named: false });
 		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL); // 初回確定
 
-		// PDS上で回答を改ざん（内容変更＝cid変化）
-		tamperRecord(answerUri(), { value: { answer: '改ざんされた回答' }, cid: nextCid() });
+		// 箱主が自分のPDS上で回答を編集（正当な変更。改ざんではない）
+		tamperRecord(answerUri(), { value: { answer: '編集後の回答' }, cid: nextCid() });
 
 		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
 
 		const m = getStoredMessage(currentId)!;
-		expect(m.answer).toBe('正しい回答'); // 凍結（改ざん反映されない）
-		expect(m.answerRecordCid).toBe(capturedCid); // cidも不変
-		expect(tamperReasonLogged('answer-cid-mismatch-tamper-blocked')).toBe(true);
+		expect(m.answer).toBe('編集後の回答'); // 追従する（凍結しない）
 	});
 
 	// ---- 4. 記名質問 -------------------------------------------------------
-	it('記名質問: ingestが質問レコードのcidを初回確定し本文を凍結する', async () => {
+	it('記名質問: ingestが質問レコードのuriを初回確定する', async () => {
 		currentId = newMessageId();
-		const capturedCid = nextCid();
 		seedMessage({ id: currentId, creatorDid: CREATOR, body: '記名の質問', senderDid: SENDER });
-		seedQuestionRecord('記名の質問', capturedCid);
+		seedQuestionRecord('記名の質問', nextCid());
 
 		const changed = await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
 
@@ -181,33 +185,27 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 		expect(changed).toBe(true);
 		expect(m.body).toBe('記名の質問');
 		expect(m.questionRecordUri).toBe(questionUri());
-		expect(m.questionRecordCid).toBe(capturedCid);
 	});
 
-	// ---- 5. 記名質問(未回答)の質問改ざん ----------------------------------
-	it('記名質問で未回答時の質問改ざん: cid確定後の質問編集はブロックされ凍結される', async () => {
+	// ---- 5. 記名質問(未回答)を送信者が編集 ---------------------------------
+	it('記名質問で未回答時の編集: まだ回答が無いので最新のPDS内容へ追従する', async () => {
 		currentId = newMessageId();
-		const capturedCid = nextCid();
 		seedMessage({ id: currentId, creatorDid: CREATOR, body: '記名の質問', senderDid: SENDER });
-		seedQuestionRecord('記名の質問', capturedCid);
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL); // 初回確定
+		seedQuestionRecord('記名の質問', nextCid());
+		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL); // 初回取り込み
 
-		tamperRecord(questionUri(), { value: { text: '改ざんされた質問' }, cid: nextCid() });
+		// 未回答のうちに送信者が質問を編集(誤字修正など)
+		tamperRecord(questionUri(), { value: { text: '編集後の質問' }, cid: nextCid() });
 
 		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
 
 		const m = getStoredMessage(currentId)!;
-		expect(m.body).toBe('記名の質問'); // 凍結
-		expect(m.questionRecordCid).toBe(capturedCid);
-		expect(tamperReasonLogged('question-cid-mismatch-tamper-blocked')).toBe(true);
+		expect(m.body).toBe('編集後の質問'); // 追従する（凍結しない）
 	});
 
 	// ---- 6. 記名質問への回答 ----------------------------------------------
-	it('記名質問への回答: 質問・回答レコード両方のcidが確定する', async () => {
+	it('記名質問への回答: 質問・回答レコード両方のuriが確定する', async () => {
 		currentId = newMessageId();
-		const qCid = nextCid();
-		const aCid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
@@ -216,8 +214,8 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 			answer: '記名への回答',
 			answeredAt: new Date().toISOString()
 		});
-		seedQuestionRecord('記名の質問', qCid);
-		seedAnswerRecord('記名への回答', '記名の質問', aCid, { named: true });
+		seedQuestionRecord('記名の質問', nextCid());
+		seedAnswerRecord('記名への回答', '記名の質問', nextCid(), { named: true });
 
 		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL); // 質問確定
 		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL); // 回答確定
@@ -225,121 +223,286 @@ describe('質問回答トランザクション / 改ざん検知', () => {
 		const m = getStoredMessage(currentId)!;
 		expect(m.body).toBe('記名の質問');
 		expect(m.answer).toBe('記名への回答');
-		expect(m.questionRecordCid).toBe(qCid);
-		expect(m.answerRecordCid).toBe(aCid);
+		expect(m.questionRecordUri).toBe(questionUri());
+		expect(m.answerRecordUri).toBe(answerUri());
 	});
 
-	// ---- 7. 記名質問への回答の質問改ざん ----------------------------------
-	it('記名質問への回答後の質問改ざん: 質問だけ凍結され回答は健全', async () => {
+	// ---- 7〜9. 回答後の改ざん・正当編集の検知は resolveAnsweredContent の責務 ----
+	// （ingest/reconcileはDB本文を書き換えないため、表示時のライブ判定を直接検証する。
+	//   下の「resolveAnsweredContent」describeブロックにまとめて存在する）
+
+	// ---- 補助: 回答削除は reconcileMessageWithPds が検知し再回答可能にする ----
+	it('参考: 回答レコードがPDSから消えた場合、reconcileMessageWithPdsが削除として追従する', async () => {
 		currentId = newMessageId();
-		const qCid = nextCid();
-		const aCid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
 			body: '記名の質問',
 			senderDid: SENDER,
 			answer: '記名への回答',
-			answeredAt: new Date().toISOString()
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
+		});
+		// 回答レコードをPDSへ投入しない＝箱主が削除済み(404)
+
+		const changed = await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
+
+		expect(changed).toBe(true);
+		const m = getStoredMessage(currentId)!;
+		expect(m.answer).toBeNull();
+		expect(m.answerRecordUri).toBeNull();
+	});
+});
+
+// ---- resolveAnsweredContent（Phase 4: 回答済み一覧のread-through）--------------
+describe('resolveAnsweredContent: 回答済み一覧のPDS read-through', () => {
+	it('未回答メッセージは null（一覧から除外）', async () => {
+		currentId = newMessageId();
+		seedMessage({ id: currentId, creatorDid: CREATOR, body: '質問', senderDid: null, answer: null });
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toBeNull();
+	});
+
+	it('回答レコード未同期(レガシー)の場合はDBキャッシュへフォールバックする', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: 'DBの質問',
+			senderDid: null,
+			answer: 'DBの回答',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: null // PDSへの書き込みが過去に失敗したケース
+		});
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toEqual({ body: 'DBの質問', answer: 'DBの回答', imageUrls: [] });
+	});
+
+	it('回答レコードが生きていれば、その内容を正として使う（DBキャッシュより優先）', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '古い質問キャッシュ',
+			senderDid: null,
+			answer: '古い回答キャッシュ',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: answerUri()
+		});
+		seedAnswerRecord('最新の回答', '最新の質問', nextCid(), { named: false });
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toEqual({ body: '最新の質問', answer: '最新の回答', imageUrls: [] });
+	});
+
+	it('回答レコードがPDS上で削除済みなら null（一覧から除外）', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '質問',
+			senderDid: null,
+			answer: '回答',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: answerUri()
+		});
+		// 回答レコードをPDSへ投入しない＝404相当
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toBeNull();
+	});
+
+	// 【設計】記名質問はスナップショットを使わず、常にライブの質問レコードを正とする。
+	// 取り下げ(404)・改ざん(cid不一致)はどちらも「表示しない」で統一し、DBの永続
+	// フラグ(旧sender_deleted_at依存)を持たない。
+
+	it('記名質問がPDS上で健在・cid一致なら、ライブの質問内容を表示する', async () => {
+		currentId = newMessageId();
+		const qCid = nextCid();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: 'DBキャッシュ(古い)',
+			senderDid: SENDER,
+			answer: '記名への回答',
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
+		});
+		seedQuestionRecord('ライブの質問内容', qCid);
+		seedAnswerRecord('記名への回答', '記名の質問(スナップショット)', nextCid(), { named: true, questionRefCid: qCid });
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.body).toBe('ライブの質問内容'); // スナップショットではなくライブの内容
+		expect(resolved!.answer).toBe('記名への回答');
+	});
+
+	it('送信者が質問を取り下げた(404)場合: nullを返す（一覧から除外）', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '記名の質問',
+			senderDid: SENDER,
+			answer: '記名への回答',
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
+		});
+		// 質問レコードは投入しない＝送信者が削除済み(404)
+		seedAnswerRecord('記名への回答', '記名の質問', nextCid(), { named: true });
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toBeNull();
+	});
+
+	it('回答後に質問が書き換えられた(cid不一致・改ざん)場合: nullを返しログを残す', async () => {
+		currentId = newMessageId();
+		const qCid = nextCid();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '記名の質問',
+			senderDid: SENDER,
+			answer: '記名への回答',
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
 		});
 		seedQuestionRecord('記名の質問', qCid);
-		seedAnswerRecord('記名への回答', '記名の質問', aCid, { named: true });
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
-
+		seedAnswerRecord('記名への回答', '記名の質問', nextCid(), { named: true, questionRefCid: qCid });
+		// 回答後に送信者が質問を書き換える（改ざん）
 		tamperRecord(questionUri(), { value: { text: '改ざんされた質問' }, cid: nextCid() });
 
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
-
-		const m = getStoredMessage(currentId)!;
-		expect(m.body).toBe('記名の質問'); // 質問は凍結
-		expect(m.questionRecordCid).toBe(qCid);
-		expect(m.answer).toBe('記名への回答'); // 回答は健全
-		expect(m.answerRecordCid).toBe(aCid);
-		expect(tamperReasonLogged('question-cid-mismatch-tamper-blocked')).toBe(true);
-		expect(tamperReasonLogged('answer-cid-mismatch-tamper-blocked')).toBe(false);
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toBeNull();
+		expect(tamperReasonLogged('question-edited-after-answered')).toBe(true);
 	});
 
-	// ---- 8. 記名質問への回答の回答改ざん ----------------------------------
-	it('記名質問への回答後の回答改ざん: 回答だけ凍結され質問は健全', async () => {
+	it('箱主が自分の回答を編集していても、質問が健在・cid一致なら正しく表示する', async () => {
 		currentId = newMessageId();
 		const qCid = nextCid();
-		const aCid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
 			body: '記名の質問',
 			senderDid: SENDER,
 			answer: '記名への回答',
-			answeredAt: new Date().toISOString()
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
 		});
 		seedQuestionRecord('記名の質問', qCid);
-		seedAnswerRecord('記名への回答', '記名の質問', aCid, { named: true });
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
+		// 回答レコード自体が既に編集済みの内容として存在する（本人の正当な編集）
+		seedAnswerRecord('編集後の回答', '記名の質問', nextCid(), { named: true, questionRefCid: qCid });
 
-		tamperRecord(answerUri(), { value: { answer: '改ざんされた回答' }, cid: nextCid() });
-
-		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
-
-		const m = getStoredMessage(currentId)!;
-		expect(m.answer).toBe('記名への回答'); // 回答は凍結
-		expect(m.answerRecordCid).toBe(aCid);
-		expect(m.body).toBe('記名の質問'); // 質問は健全
-		expect(m.questionRecordCid).toBe(qCid);
-		expect(tamperReasonLogged('answer-cid-mismatch-tamper-blocked')).toBe(true);
-		expect(tamperReasonLogged('question-cid-mismatch-tamper-blocked')).toBe(false);
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.answer).toBe('編集後の回答');
+		expect(resolved!.body).toBe('記名の質問');
+		expect(tamperReasonLogged('question-edited-after-answered')).toBe(false);
 	});
 
-	// ---- 9. 記名質問への回答の質問および回答改ざん ------------------------
-	it('記名質問への回答後の質問+回答の同時改ざん: 両方凍結される', async () => {
+	it('匿名の回答済みメッセージはR2の画像キーからimageUrlsを組み立てる', async () => {
 		currentId = newMessageId();
-		const qCid = nextCid();
-		const aCid = nextCid();
 		seedMessage({
 			id: currentId,
 			creatorDid: CREATOR,
-			body: '記名の質問',
-			senderDid: SENDER,
-			answer: '記名への回答',
-			answeredAt: new Date().toISOString()
+			body: '匿名の質問',
+			senderDid: null,
+			answer: '匿名への回答',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: null,
+			imageKeys: ['messages/2026/01/abc-0.jpg']
 		});
-		seedQuestionRecord('記名の質問', qCid);
-		seedAnswerRecord('記名への回答', '記名の質問', aCid, { named: true });
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
 
-		tamperRecord(questionUri(), { value: { text: '改ざん質問' }, cid: nextCid() });
-		tamperRecord(answerUri(), { value: { answer: '改ざん回答' }, cid: nextCid() });
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved?.imageUrls).toEqual(['/api/images/messages/2026/01/abc-0.jpg']);
+	});
+});
 
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
-		await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
+// ---- Phase 5: DB本文キャッシュの剪定 ------------------------------------------
+describe('Phase 5: 回答済み本文の剪定とingestの整合性', () => {
+	it('PDSで内容を確認できたら、DBのbody/answerを剪定する', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '古いキャッシュの質問',
+			senderDid: null,
+			answer: '古いキャッシュの回答',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: answerUri()
+		});
+		seedAnswerRecord('回答', '質問', nextCid(), { named: false });
+
+		await resolveAnsweredContent(env, getStoredMessage(currentId)!);
 
 		const m = getStoredMessage(currentId)!;
-		expect(m.body).toBe('記名の質問'); // 質問凍結
-		expect(m.questionRecordCid).toBe(qCid);
-		expect(m.answer).toBe('記名への回答'); // 回答凍結
-		expect(m.answerRecordCid).toBe(aCid);
-		expect(tamperReasonLogged('question-cid-mismatch-tamper-blocked')).toBe(true);
-		expect(tamperReasonLogged('answer-cid-mismatch-tamper-blocked')).toBe(true);
+		expect(m.body).toBe('');
+		expect(m.answer).toBe('');
 	});
 
-	// ---- 補助: 正当な削除は追従する（凍結方式が削除を妨げないことの確認）----
-	it('参考: PDSからレコードが消えた場合は削除として追従する（改ざん扱いしない）', async () => {
+	it('剪定済み(body/answerが空文字列)の行は、回答ingestで復元されない', async () => {
 		currentId = newMessageId();
-		const qCid = nextCid();
-		seedMessage({ id: currentId, creatorDid: CREATOR, body: '記名の質問', senderDid: SENDER });
-		seedQuestionRecord('記名の質問', qCid);
-		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '', // 剪定済み
+			senderDid: null,
+			answer: '', // 剪定済み
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: answerUri()
+		});
+		seedAnswerRecord('生きている回答', '生きている質問', nextCid(), { named: false });
 
-		removeRecord(questionUri()); // 送信者が質問を削除
-		await reconcileMessageWithPds(env, getStoredMessage(currentId)!);
+		const changed = await ingestCreatesFromPdsForUser(env, CREATOR, APP_URL);
 
 		const m = getStoredMessage(currentId)!;
-		expect(m.senderDeletedAt).not.toBeNull();
-		expect(m.questionRecordUri).toBeNull();
+		expect(changed).toBe(false);
+		expect(m.body).toBe(''); // 復元されない
+		expect(m.answer).toBe(''); // 復元されない
+	});
+
+	it('剪定済みでも表示時(resolveAnsweredContent)はPDSから正しく内容を解決できる', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '',
+			senderDid: null,
+			answer: '',
+			answeredAt: new Date().toISOString(),
+			answerRecordUri: answerUri()
+		});
+		seedAnswerRecord('生きている回答', '生きている質問', nextCid(), { named: false });
+
+		const resolved = await resolveAnsweredContent(env, getStoredMessage(currentId)!);
+		expect(resolved).toEqual({ body: '生きている質問', answer: '生きている回答', imageUrls: [] });
+	});
+
+	it('記名質問で回答済み(剪定済み)の場合、質問ingestの凍結ゲートはanswerではなくansweredAtで判定される', async () => {
+		currentId = newMessageId();
+		seedMessage({
+			id: currentId,
+			creatorDid: CREATOR,
+			body: '', // 剪定済み
+			senderDid: SENDER,
+			answer: '', // 剪定済み
+			answeredAt: new Date().toISOString(),
+			questionRecordUri: questionUri(),
+			answerRecordUri: answerUri()
+		});
+		seedQuestionRecord('送信者PDS上の最新質問', nextCid());
+		seedAnswerRecord('回答', '回答時点の質問', nextCid(), { named: true });
+
+		await ingestCreatesFromPdsForUser(env, SENDER, APP_URL);
+
+		const m = getStoredMessage(currentId)!;
+		expect(m.body).toBe(''); // 空文字列のまま復元されない(=誤ってfalsy判定されて追従していない)
 	});
 });

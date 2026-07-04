@@ -58,9 +58,7 @@ export function seedMessage(
 		answeredAt: partial.answeredAt ?? null,
 		senderDid: partial.senderDid ?? null,
 		questionRecordUri: partial.questionRecordUri ?? null,
-		questionRecordCid: partial.questionRecordCid ?? null,
 		answerRecordUri: partial.answerRecordUri ?? null,
-		answerRecordCid: partial.answerRecordCid ?? null,
 		senderDeletedAt: partial.senderDeletedAt ?? null,
 		answerDeletedAt: partial.answerDeletedAt ?? null
 	};
@@ -159,11 +157,9 @@ export const fakeDb = {
 			body: string;
 			senderDid: string | null;
 			questionRecordUri?: string | null;
-			questionRecordCid?: string | null;
 			answer?: string | null;
 			answeredAt?: string | null;
 			answerRecordUri?: string | null;
-			answerRecordCid?: string | null;
 		}
 	): Promise<Message | null> {
 		const id = data.id ?? crypto.randomUUID();
@@ -176,11 +172,9 @@ export const fakeDb = {
 			ipHash: 'pds-sync',
 			senderDid: data.senderDid,
 			questionRecordUri: data.questionRecordUri ?? null,
-			questionRecordCid: data.questionRecordCid ?? null,
 			answer: data.answer ?? null,
 			answeredAt: data.answeredAt ?? null,
-			answerRecordUri: data.answerRecordUri ?? null,
-			answerRecordCid: data.answerRecordCid ?? null
+			answerRecordUri: data.answerRecordUri ?? null
 		});
 	},
 
@@ -188,13 +182,11 @@ export const fakeDb = {
 		_env: Env,
 		id: string,
 		senderDid: string,
-		uri: string,
-		cid: string
+		uri: string
 	): Promise<boolean> {
 		const m = messages.get(id);
 		if (!m || m.senderDid !== senderDid) return false; // WHERE id AND sender_did
 		m.questionRecordUri = uri;
-		m.questionRecordCid = cid;
 		return true;
 	},
 
@@ -202,47 +194,42 @@ export const fakeDb = {
 		_env: Env,
 		id: string,
 		creatorDid: string,
-		uri: string,
-		cid: string
+		uri: string
 	): Promise<boolean> {
 		const m = messages.get(id);
 		if (!m || m.creatorDid !== creatorDid) return false; // WHERE id AND creator_did
 		m.answerRecordUri = uri;
-		m.answerRecordCid = cid;
 		return true;
 	},
 
 	async reconcileQuestionFromPds(
 		_env: Env,
 		id: string,
-		data: { body: string; cid?: string | null }
+		data: { body: string }
 	): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
 		m.body = data.body;
-		m.questionRecordCid = data.cid ?? null;
 		m.senderDeletedAt = null;
 	},
 
 	async reconcileAnswerFromPds(
 		_env: Env,
 		id: string,
-		data: { answer: string; answeredAt?: string | null; cid?: string | null }
+		data: { answer: string; answeredAt?: string | null }
 	): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
 		m.answer = data.answer;
 		m.answeredAt = data.answeredAt ?? new Date().toISOString();
-		m.answerRecordCid = data.cid ?? null;
 		m.answerDeletedAt = null;
 	},
 
-	async markQuestionMissingFromPds(_env: Env, id: string): Promise<void> {
+	async pruneAnsweredContent(_env: Env, id: string): Promise<void> {
 		const m = messages.get(id);
 		if (!m) return;
-		m.questionRecordUri = null;
-		m.questionRecordCid = null;
-		m.senderDeletedAt = new Date().toISOString();
+		m.body = '';
+		m.answer = '';
 	},
 
 	async markAnswerMissingFromPds(_env: Env, id: string): Promise<void> {
@@ -251,7 +238,6 @@ export const fakeDb = {
 		m.answer = null;
 		m.answeredAt = null;
 		m.answerRecordUri = null;
-		m.answerRecordCid = null;
 		m.answerDeletedAt = new Date().toISOString();
 	}
 };

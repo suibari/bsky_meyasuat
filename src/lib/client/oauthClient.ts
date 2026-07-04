@@ -45,6 +45,49 @@ export function parseAtUri(uri: string): ParsedAtUri | null {
 	return { repo, collection, rkey };
 }
 
+export type ConfigRecordFields = {
+	notifyEnabled: boolean;
+	shareHandleEnabled: boolean;
+	requireNamedEnabled: boolean;
+	boxName: string | null;
+};
+
+// 設定を自分のPDSへ反映する。config/self は1レコードにフィールドを全部含むため、
+// 呼び出し側は変更前の値も含めた完全な設定一式を渡す必要がある。
+// createdAt は既存レコードがあればそれを引き継ぎ、無ければ新規作成として現在時刻を刻む。
+export async function putConfigRecord(appUrl: string, did: string, config: ConfigRecordFields): Promise<void> {
+	const client = await createOAuthClient(appUrl);
+	const session = await client.restore(did);
+	const agent = new Agent(session);
+
+	let createdAt = new Date().toISOString();
+	try {
+		const existing = await agent.com.atproto.repo.getRecord({
+			repo: did,
+			collection: 'com.suibari.meyasuat.config',
+			rkey: 'self'
+		});
+		const existingCreatedAt = (existing.data.value as { createdAt?: unknown })?.createdAt;
+		if (typeof existingCreatedAt === 'string') createdAt = existingCreatedAt;
+	} catch {
+		// レコード未作成（初回書き込み）。新規作成として扱う。
+	}
+
+	await agent.com.atproto.repo.putRecord({
+		repo: did,
+		collection: 'com.suibari.meyasuat.config',
+		rkey: 'self',
+		record: {
+			$type: 'com.suibari.meyasuat.config',
+			notifyEnabled: config.notifyEnabled,
+			shareHandleEnabled: config.shareHandleEnabled,
+			requireNamedEnabled: config.requireNamedEnabled,
+			...(config.boxName ? { boxName: config.boxName } : {}),
+			createdAt
+		}
+	});
+}
+
 export async function deleteRecordOnPds(appUrl: string, did: string, uri: string): Promise<void> {
 	const parsed = parseAtUri(uri);
 	if (!parsed) throw new Error('Invalid at:// URI');

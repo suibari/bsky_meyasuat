@@ -7,7 +7,10 @@ const requiredScopes = [
 	'repo:com.suibari.meyasuat.question?action=create',
 	'repo:com.suibari.meyasuat.question?action=delete',
 	'repo:com.suibari.meyasuat.answer?action=create',
-	'repo:com.suibari.meyasuat.answer?action=delete'
+	'repo:com.suibari.meyasuat.answer?action=delete',
+	'repo:com.suibari.meyasuat.config?action=create',
+	'repo:com.suibari.meyasuat.config?action=update',
+	'repo:com.suibari.meyasuat.config?action=delete'
 ];
 
 describe('meyasuat OAuth scope', () => {

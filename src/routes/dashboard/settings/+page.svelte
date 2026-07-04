@@ -31,6 +31,27 @@
 	let requireNamedError = $state('');
 	let lastSavedRequireNamedEnabled = initialRequireNamedEnabled();
 
+	// 設定変更を自分のPDSへ反映する（best-effort。失敗してもDB保存済みの設定は有効なままなのでUIには出さない）。
+	async function syncConfigToPds(overrides: Partial<{
+		notifyEnabled: boolean;
+		shareHandleEnabled: boolean;
+		requireNamedEnabled: boolean;
+		boxName: string | null;
+	}>) {
+		try {
+			const { putConfigRecord } = await import('$lib/client/oauthClient.js');
+			await putConfigRecord(data.appUrl, data.user.did, {
+				notifyEnabled: data.user.notifyEnabled,
+				shareHandleEnabled: data.user.shareHandleEnabled,
+				requireNamedEnabled: data.user.requireNamedEnabled,
+				boxName: data.user.boxName,
+				...overrides
+			});
+		} catch (e) {
+			console.error('Failed to sync config to PDS', e);
+		}
+	}
+
 	let showDeleteModal = $state(false);
 	let deleting = $state(false);
 	let deleteError = $state('');
@@ -109,6 +130,7 @@
 
 			if (result.type === 'success') {
 				lastSavedNotifyEnabled = enabling;
+				void syncConfigToPds({ notifyEnabled: enabling });
 			} else {
 				notifyEnabled = previous;
 				followError = result.type === 'failure' ? $t('settings.notify_save_error') : 'Unknown error';
@@ -131,6 +153,7 @@
 		return async ({ result }) => {
 			if (result.type === 'success') {
 				lastSavedRequireNamedEnabled = enabling;
+				void syncConfigToPds({ requireNamedEnabled: enabling });
 			} else {
 				requireNamedEnabled = previous;
 				requireNamedError = $t('settings.require_named_save_error');
@@ -143,6 +166,16 @@
 		if (requireNamedSaving) return;
 		requireNamedForm.requestSubmit();
 	}
+
+	const handleBoxNameSubmit: SubmitFunction = ({ formData }) => {
+		const raw = (formData.get('box_name') as string | null)?.trim() ?? '';
+		return async ({ result, update }) => {
+			await update();
+			if (result.type === 'success') {
+				void syncConfigToPds({ boxName: raw || null });
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -159,7 +192,7 @@
 	<!-- めやすばこの名前 -->
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.box_name')}</h2>
-		<form method="POST" action="?/saveBoxName" use:enhance>
+		<form method="POST" action="?/saveBoxName" use:enhance={handleBoxNameSubmit}>
 			<input
 				type="text"
 				name="box_name"

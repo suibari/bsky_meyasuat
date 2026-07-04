@@ -32,9 +32,7 @@ export type Message = {
 	answeredAt: string | null;
 	senderDid: string | null;
 	questionRecordUri: string | null;
-	questionRecordCid: string | null;
 	answerRecordUri: string | null;
-	answerRecordCid: string | null;
 	senderDeletedAt: string | null;
 	answerDeletedAt: string | null;
 };
@@ -100,9 +98,7 @@ function toMessage(row: Record<string, unknown>): Message {
 		answeredAt: (row.answered_at as string | null) ?? null,
 		senderDid: (row.sender_did as string | null) ?? null,
 		questionRecordUri: (row.question_record_uri as string | null) ?? null,
-		questionRecordCid: (row.question_record_cid as string | null) ?? null,
 		answerRecordUri: (row.answer_record_uri as string | null) ?? null,
-		answerRecordCid: (row.answer_record_cid as string | null) ?? null,
 		senderDeletedAt: (row.sender_deleted_at as string | null) ?? null,
 		answerDeletedAt: (row.answer_deleted_at as string | null) ?? null
 	};
@@ -270,11 +266,9 @@ export async function createMessageFromPds(
 		body: string;
 		senderDid: string | null;
 		questionRecordUri?: string | null;
-		questionRecordCid?: string | null;
 		answer?: string | null;
 		answeredAt?: string | null;
 		answerRecordUri?: string | null;
-		answerRecordCid?: string | null;
 	}
 ): Promise<Message | null> {
 	const payload: Record<string, unknown> = {
@@ -284,11 +278,9 @@ export async function createMessageFromPds(
 		ip_hash: 'pds-sync',
 		sender_did: data.senderDid,
 		question_record_uri: data.questionRecordUri ?? null,
-		question_record_cid: data.questionRecordCid ?? null,
 		answer: data.answer ?? null,
 		answered_at: data.answeredAt ?? null,
 		answer_record_uri: data.answerRecordUri ?? null,
-		answer_record_cid: data.answerRecordCid ?? null,
 		is_read: false
 	};
 	if (data.id) payload.id = data.id;
@@ -343,15 +335,14 @@ export async function updateMessageAnswerRef(
 	env: Env,
 	id: string,
 	creatorDid: string,
-	uri: string,
-	cid: string
+	uri: string
 ): Promise<boolean> {
 	const res = await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
 		{
 			method: 'PATCH',
 			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({ answer_record_uri: uri, answer_record_cid: cid })
+			body: JSON.stringify({ answer_record_uri: uri })
 		}
 	);
 	if (!res.ok) return false;
@@ -371,6 +362,18 @@ export async function getAnsweredMessages(
 	if (!res.ok) return [];
 	const rows = await res.json() as Record<string, unknown>[];
 	return rows.map(toMessage);
+}
+
+// 回答済みメッセージの本文キャッシュを剪定する。PDS上のanswerレコードで内容が
+// 確認できた後に呼ばれる想定（呼び出し元: pdsSync.ts の resolveAnsweredContent）。
+// NOT NULL制約があるため null ではなく空文字列にする。空文字列は「未回答」(null)とは
+// 区別されるため、既存の判定ロジック（answer IS NOT NULL 等）を壊さない。
+export async function pruneAnsweredContent(env: Env, id: string): Promise<void> {
+	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
+		method: 'PATCH',
+		headers: headers(env),
+		body: JSON.stringify({ body: '', answer: '' })
+	});
 }
 
 export async function getSentMessages(
@@ -397,15 +400,14 @@ export async function updateMessageQuestionRef(
 	env: Env,
 	id: string,
 	senderDid: string,
-	uri: string,
-	cid: string
+	uri: string
 ): Promise<boolean> {
 	const res = await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&sender_did=eq.${encodeURIComponent(senderDid)}`,
 		{
 			method: 'PATCH',
 			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({ question_record_uri: uri, question_record_cid: cid })
+			body: JSON.stringify({ question_record_uri: uri })
 		}
 	);
 	if (!res.ok) return false;
@@ -421,7 +423,6 @@ export async function deleteQuestionForSender(env: Env, id: string, senderDid: s
 			headers: { ...headers(env), Prefer: 'return=representation' },
 			body: JSON.stringify({
 				question_record_uri: null,
-				question_record_cid: null,
 				sender_deleted_at: new Date().toISOString()
 			})
 		}
@@ -441,7 +442,6 @@ export async function deleteAnswerForCreator(env: Env, id: string, creatorDid: s
 				answer: null,
 				answered_at: null,
 				answer_record_uri: null,
-				answer_record_cid: null,
 				answer_deleted_at: new Date().toISOString()
 			})
 		}
@@ -472,7 +472,6 @@ export async function detachSentQuestions(env: Env, senderDid: string): Promise<
 			headers: { ...headers(env), Prefer: 'return=minimal' },
 			body: JSON.stringify({
 				question_record_uri: null,
-				question_record_cid: null,
 				sender_deleted_at: new Date().toISOString()
 			})
 		}
@@ -502,27 +501,14 @@ export async function deleteBoxAndRelatedData(env: Env, did: string): Promise<vo
 export async function reconcileQuestionFromPds(
 	env: Env,
 	id: string,
-	data: { body: string; cid?: string | null }
+	data: { body: string }
 ): Promise<void> {
 	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
 		method: 'PATCH',
 		headers: headers(env),
 		body: JSON.stringify({
 			body: data.body,
-			question_record_cid: data.cid ?? null,
 			sender_deleted_at: null
-		})
-	});
-}
-
-export async function markQuestionMissingFromPds(env: Env, id: string): Promise<void> {
-	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
-		method: 'PATCH',
-		headers: headers(env),
-		body: JSON.stringify({
-			question_record_uri: null,
-			question_record_cid: null,
-			sender_deleted_at: new Date().toISOString()
 		})
 	});
 }
@@ -530,7 +516,7 @@ export async function markQuestionMissingFromPds(env: Env, id: string): Promise<
 export async function reconcileAnswerFromPds(
 	env: Env,
 	id: string,
-	data: { answer: string; answeredAt?: string | null; cid?: string | null }
+	data: { answer: string; answeredAt?: string | null }
 ): Promise<void> {
 	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
 		method: 'PATCH',
@@ -538,7 +524,6 @@ export async function reconcileAnswerFromPds(
 		body: JSON.stringify({
 			answer: data.answer,
 			answered_at: data.answeredAt ?? new Date().toISOString(),
-			answer_record_cid: data.cid ?? null,
 			answer_deleted_at: null
 		})
 	});
@@ -552,7 +537,6 @@ export async function markAnswerMissingFromPds(env: Env, id: string): Promise<vo
 			answer: null,
 			answered_at: null,
 			answer_record_uri: null,
-			answer_record_cid: null,
 			answer_deleted_at: new Date().toISOString()
 		})
 	});

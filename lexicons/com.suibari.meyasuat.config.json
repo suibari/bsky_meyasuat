@@ -1,0 +1,39 @@
+{
+	"lexicon": 1,
+	"id": "com.suibari.meyasuat.config",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A meyasuat box owner's settings. Its existence also marks that the owner has a box. One per repo.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": ["createdAt"],
+				"properties": {
+					"notifyEnabled": {
+						"type": "boolean",
+						"description": "Whether DM notifications are enabled. Defaults to false when absent."
+					},
+					"shareHandleEnabled": {
+						"type": "boolean",
+						"description": "Whether the owner's handle is shared when they ask questions. Defaults to false when absent."
+					},
+					"requireNamedEnabled": {
+						"type": "boolean",
+						"description": "Whether questions to this box require a signed-in (named) sender. Defaults to false when absent."
+					},
+					"boxName": {
+						"type": "string",
+						"maxLength": 3000,
+						"maxGraphemes": 100,
+						"description": "Display name of the box."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}

@@ -45,13 +45,35 @@
 
 	async function recordAnswerOnPds(answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient }, { Agent }] = await Promise.all([
+			const [{ createOAuthClient, parseAtUri }, { Agent }] = await Promise.all([
 				import('$lib/client/oauthClient.js'),
 				import('@atproto/api')
 			]);
 			const client = await createOAuthClient(data.appUrl);
 			const session = await client.restore(data.creator.did);
 			const agent = new Agent(session);
+
+			// questionRef には「回答時点」の質問cidを刻む。DBキャッシュではなく
+			// 常にその場でPDSから取得することで、回答後の質問改ざん検知の基準にする。
+			let questionRef: { uri: string; cid: string } | undefined;
+			if (data.message.questionRecordUri) {
+				const parsed = parseAtUri(data.message.questionRecordUri);
+				if (parsed) {
+					try {
+						const live = await agent.com.atproto.repo.getRecord({
+							repo: parsed.repo,
+							collection: parsed.collection,
+							rkey: parsed.rkey
+						});
+						if (live.data.cid) {
+							questionRef = { uri: data.message.questionRecordUri, cid: live.data.cid };
+						}
+					} catch (e) {
+						console.error('Failed to fetch live question cid for questionRef', e);
+					}
+				}
+			}
+
 			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.creator.did,
 				collection: 'com.suibari.meyasuat.answer',
@@ -59,9 +81,7 @@
 					$type: 'com.suibari.meyasuat.answer',
 					...(data.message.senderDid ? { subject: data.message.senderDid } : {}),
 					question: data.message.body,
-					...(data.message.questionRecordUri && data.message.questionRecordCid
-						? { questionRef: { uri: data.message.questionRecordUri, cid: data.message.questionRecordCid } }
-						: {}),
+					...(questionRef ? { questionRef } : {}),
 					answer,
 					url: pageUrl,
 					createdAt: new Date().toISOString()
@@ -71,7 +91,7 @@
 			await fetch(`/api/messages/${data.message.id}/answer-ref`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ uri: created.data.uri, cid: created.data.cid })
+				body: JSON.stringify({ uri: created.data.uri })
 			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);

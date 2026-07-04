@@ -27,6 +27,21 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ enabled: shareHandle })
 		});
+
+		// 設定を自分のPDSへ反映する（best-effort。失敗してもDB保存は完了しているのでUIには出さない）。
+		const user = data.user;
+		if (!user) return;
+		try {
+			const { putConfigRecord } = await import('$lib/client/oauthClient.js');
+			await putConfigRecord(data.appUrl, user.did, {
+				notifyEnabled: user.notifyEnabled,
+				shareHandleEnabled: shareHandle,
+				requireNamedEnabled: user.requireNamedEnabled,
+				boxName: user.boxName
+			});
+		} catch (e) {
+			console.error('Failed to sync config to PDS', e);
+		}
 	}
 
 	async function recordQuestionOnPds(messageId: string): Promise<void> {
@@ -46,7 +61,7 @@
 					return { image: up.data.blob, alt: '' };
 				})
 			);
-			const { uri, cid } = await agent.com.atproto.repo.createRecord({
+			const { uri } = await agent.com.atproto.repo.createRecord({
 				repo: user.did,
 				collection: 'com.suibari.meyasuat.question',
 				record: {
@@ -61,7 +76,7 @@
 			await fetch(`/api/messages/${messageId}/question-ref`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ uri, cid })
+				body: JSON.stringify({ uri })
 			});
 		} catch (e) {
 			console.error('Failed to record question on PDS', e);

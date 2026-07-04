@@ -13,12 +13,12 @@ export const POST: RequestHandler = async ({ params, request, platform, locals }
 	if (!message) error(404, 'Message not found');
 	if (message.creatorDid !== user.did) error(403, 'Forbidden');
 
-	const body = await request.json().catch(() => null) as { uri?: string; cid?: string } | null;
-	if (!body || !body.uri || !body.cid) {
+	const body = await request.json().catch(() => null) as { uri?: string } | null;
+	if (!body || !body.uri) {
 		error(400, 'Invalid request body');
 	}
 
-	const ok = await updateMessageAnswerRef(env, message.id, user.did, body.uri, body.cid);
+	const ok = await updateMessageAnswerRef(env, message.id, user.did, body.uri);
 	if (!ok) error(500, 'Failed to update message');
 
 	return json({ ok: true });
