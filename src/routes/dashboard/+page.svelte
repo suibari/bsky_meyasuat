@@ -557,7 +557,7 @@
 <!-- シェアモーダル -->
 {#if sharingMessageId}
 	<ShareModal
-		ogImageUrl={ogImageUrl(data.appUrl, sharingMessageId)}
+		ogImageUrl={ogImageUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
 		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
 		onClose={() => sharingMessageId = null}
 	/>

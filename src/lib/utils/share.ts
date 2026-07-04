@@ -1,5 +1,5 @@
-export function ogImageUrl(appUrl: string, messageId: string): string {
-	return `${appUrl}/api/og/${messageId}`;
+export function ogImageUrl(appUrl: string, handle: string, messageId: string): string {
+	return `${appUrl}/api/og/u/${handle}/m/${messageId}`;
 }
 
 export function pageShareUrl(appUrl: string, handle: string, messageId: string): string {

@@ -25,12 +25,6 @@ export const POST: RequestHandler = async ({ params, locals, platform, request }
 		throw e;
 	}
 
-	const appUrl = env.PUBLIC_APP_URL?.trim();
-	if (appUrl) {
-		const prewarmOg = fetch(`${appUrl}/api/og/${params.id}`).catch(() => undefined);
-		platform?.context?.waitUntil(prewarmOg);
-	}
-
 	return json({ ok: true, answer, answeredAt: new Date().toISOString() });
 };
 
