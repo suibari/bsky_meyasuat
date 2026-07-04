@@ -550,7 +550,7 @@
 <!-- シェアモーダル -->
 {#if sharingMessageId}
 	<ShareModal
-		ogImageUrl={ogImageUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
+		ogImageUrl={ogImageUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId, data.user?.ogVersion)}
 		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
 		onClose={() => sharingMessageId = null}
 	/>
@@ -558,7 +558,7 @@
 
 {#if showBoxShare}
 	<ShareModal
-		ogImageUrl={`${data.appUrl}/api/og/u/${data.user?.handle}`}
+		ogImageUrl={`${data.appUrl}/api/og/u/${data.user?.handle}?v=${data.user?.ogVersion}`}
 		shareUrl={boxUrl}
 		title={$t('dashboard.share_box_title')}
 		onClose={() => showBoxShare = false}
