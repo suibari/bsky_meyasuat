@@ -1,6 +1,6 @@
 import satori, { init as initSatori } from 'satori/standalone';
 import { Resvg, initWasm as initResvg } from '@resvg/resvg-wasm';
-import { getOgTheme, hexToRgba, type OgTheme } from '../theme.js';
+import { getOgTheme, type OgTheme } from '../theme.js';
 
 let initialized = false;
 
@@ -36,20 +36,40 @@ export async function loadFonts(appUrl: string): Promise<{ noto: ArrayBuffer; ki
 	return fontCache;
 }
 
-let iconCache: string | null = null;
+let iconMaskCache: string | null = null;
+const tintedIconCache = new Map<string, string>();
 
 function truncateText(text: string, maxLength: number, ellipsis = '...'): string {
 	return text.length > maxLength ? `${text.slice(0, maxLength)}${ellipsis}` : text;
 }
 
-export async function loadIcon(appUrl: string): Promise<string> {
-	if (iconCache) return iconCache;
-	const res = await fetch(`${appUrl}/icon_meyasuat_cyan.png`);
-	const bytes = new Uint8Array(await res.arrayBuffer());
+function svgToDataUri(svg: string): string {
 	let binary = '';
-	for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-	iconCache = `data:image/png;base64,${btoa(binary)}`;
-	return iconCache;
+	for (let i = 0; i < svg.length; i++) binary += String.fromCharCode(svg.charCodeAt(i));
+	return `data:image/svg+xml;base64,${btoa(binary)}`;
+}
+
+export async function loadIcon(appUrl: string, color = '#0ea5e9'): Promise<string> {
+	const cached = tintedIconCache.get(color);
+	if (cached) return cached;
+	if (!iconMaskCache) {
+		const res = await fetch(`${appUrl}/icon_meyasuat.png`);
+		const bytes = new Uint8Array(await res.arrayBuffer());
+		let binary = '';
+		for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+		iconMaskCache = `data:image/png;base64,${btoa(binary)}`;
+	}
+	const icon = svgToDataUri(`
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="700" viewBox="0 0 700 700">
+  <defs>
+    <mask id="icon-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="700" height="700" mask-type="alpha">
+      <image href="${iconMaskCache}" width="700" height="700" />
+    </mask>
+  </defs>
+  <rect width="700" height="700" fill="${color}" mask="url(#icon-mask)" />
+</svg>`);
+	tintedIconCache.set(color, icon);
+	return icon;
 }
 
 export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promise<string | null> {
@@ -202,16 +222,14 @@ export function buildLogoNode(
 
 function buildBackgroundLayer(opts: {
 	backgroundImageDataUri: string | null | undefined;
-	theme: OgTheme;
 	innerStyle: Record<string, unknown>;
 	children: unknown;
 }) {
-	const { backgroundImageDataUri, theme, innerStyle, children } = opts;
+	const { backgroundImageDataUri, innerStyle, children } = opts;
 	if (!backgroundImageDataUri) {
-		return { style: { background: theme.flat.background, ...innerStyle }, children };
+		return { style: { background: '#ffffff', ...innerStyle }, children };
 	}
-	const scrim = hexToRgba(theme.photo.overlayColor, theme.photo.overlayOpacity);
-	const gradient = hexToRgba(theme.photo.gradientColor, 0.85);
+	const scrim = 'rgba(255, 255, 255, 0.68)';
 	return {
 		style: {
 			display: 'flex',
@@ -234,36 +252,6 @@ function buildBackgroundLayer(opts: {
 						bottom: 0,
 						background: scrim,
 						zIndex: 1
-					}
-				}
-			},
-			{
-				type: 'div',
-				props: {
-					style: {
-						display: 'flex',
-						position: 'absolute',
-						top: 0,
-						left: 0,
-						right: 0,
-						height: '220px',
-						backgroundImage: `linear-gradient(to bottom, ${gradient}, transparent)`,
-						zIndex: 2
-					}
-				}
-			},
-			{
-				type: 'div',
-				props: {
-					style: {
-						display: 'flex',
-						position: 'absolute',
-						bottom: 0,
-						left: 0,
-						right: 0,
-						height: '220px',
-						backgroundImage: `linear-gradient(to top, ${gradient}, transparent)`,
-						zIndex: 3
 					}
 				}
 			},
@@ -299,7 +287,7 @@ export function buildMessageOgSvgNode({
 	theme?: OgTheme;
 	backgroundImageDataUri?: string | null;
 }) {
-	const textSet = backgroundImageDataUri ? theme.photo : theme.flat;
+	const textSet = theme.flat;
 	const displayCreatorName = truncateText(creatorName, 18);
 	const displayBoxName = truncateText(boxName, 14);
 	const senderName = sender ? (sender.displayName ?? sender.handle) : null;
@@ -325,7 +313,6 @@ export function buildMessageOgSvgNode({
 
 	const bg = buildBackgroundLayer({
 		backgroundImageDataUri,
-		theme,
 		innerStyle: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '64px' },
 		children: [
 			headerNode,
@@ -427,7 +414,7 @@ export function buildUserOgSvgNode({
 	theme?: OgTheme;
 	backgroundImageDataUri?: string | null;
 }) {
-	const textSet = backgroundImageDataUri ? theme.photo : theme.flat;
+	const textSet = theme.flat;
 	const displayName = truncateText(name, 16);
 	const displayHandle = truncateText(handle, 30);
 	const displayBoxName = truncateText(boxName, 14);
@@ -451,7 +438,6 @@ export function buildUserOgSvgNode({
 
 	const bg = buildBackgroundLayer({
 		backgroundImageDataUri,
-		theme,
 		innerStyle: { display: 'flex', flexDirection: 'column', padding: '64px' },
 		children: [
 			{

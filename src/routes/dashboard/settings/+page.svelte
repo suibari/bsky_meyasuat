@@ -82,22 +82,60 @@
 	let previewBoxUrl = $state<string | null>(null);
 	let previewMessageUrl = $state<string | null>(null);
 	let previewLoading = $state(false);
+	let previewError = $state('');
 	let cachedExistingBackgroundBlob: Blob | null = null;
 	let cachedExistingBackgroundUrl: string | null = null;
 	let previewDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+	let previewAbortController: AbortController | null = null;
+	let previewRequestSeq = 0;
+	let previewBackgroundVersion = $state(0);
+	const previewCache = new Map<string, { box: string; message: string }>();
 
-	async function fetchPreview(variant: 'box' | 'message', backgroundBlob: Blob | null): Promise<string | null> {
+	function previewCacheKey() {
+		const backgroundKey = backgroundRemoved
+			? 'removed'
+			: pendingBackgroundBlob
+				? `pending:${previewBackgroundVersion}`
+				: cachedExistingBackgroundBlob
+					? `existing:${cachedExistingBackgroundUrl ?? 'cached'}`
+					: data.backgroundImageUrl
+						? `existing:${data.backgroundImageUrl}`
+					: 'none';
+		return `${ogColorTheme}:${backgroundKey}`;
+	}
+
+	async function fetchPreview(backgroundBlob: Blob | null, signal: AbortSignal): Promise<{ box: string; message: string }> {
 		const fd = new FormData();
 		fd.set('colorTheme', ogColorTheme);
-		fd.set('variant', variant);
+		fd.set('variant', 'both');
 		if (backgroundBlob) fd.set('background', backgroundBlob, 'background.jpg');
-		const res = await fetch('/api/og/preview', { method: 'POST', body: fd });
-		if (!res.ok) return null;
-		return URL.createObjectURL(await res.blob());
+		const res = await fetch('/api/og/preview', { method: 'POST', body: fd, signal });
+		if (!res.ok) {
+			const err = new Error(`Preview request failed: ${res.status}`);
+			(err as Error & { status?: number }).status = res.status;
+			throw err;
+		}
+		return await res.json() as { box: string; message: string };
 	}
 
 	async function refreshOgPreview() {
+		const key = previewCacheKey();
+		previewAbortController?.abort();
+		const controller = new AbortController();
+		previewAbortController = controller;
+		const requestSeq = ++previewRequestSeq;
+
+		const cached = previewCache.get(key);
+		if (cached) {
+			previewBoxUrl = cached.box;
+			previewMessageUrl = cached.message;
+			previewError = '';
+			previewLoading = false;
+			return;
+		}
+
 		previewLoading = true;
+		previewError = '';
 		try {
 			let backgroundBlob: Blob | null = pendingBackgroundBlob;
 			if (!backgroundBlob && !backgroundRemoved) {
@@ -111,18 +149,18 @@
 				}
 			}
 
-			const [boxUrl, messageUrl] = await Promise.all([
-				fetchPreview('box', backgroundBlob),
-				fetchPreview('message', backgroundBlob)
-			]);
-			if (previewBoxUrl) URL.revokeObjectURL(previewBoxUrl);
-			if (previewMessageUrl) URL.revokeObjectURL(previewMessageUrl);
-			previewBoxUrl = boxUrl;
-			previewMessageUrl = messageUrl;
+			const preview = await fetchPreview(backgroundBlob, controller.signal);
+			if (requestSeq !== previewRequestSeq) return;
+			previewCache.set(key, preview);
+			previewBoxUrl = preview.box;
+			previewMessageUrl = preview.message;
 		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			console.error('Failed to refresh OGP preview', e);
+			const status = (e as Error & { status?: number }).status;
+			previewError = status === 429 ? $t('settings.ogp_preview_rate_limited') : $t('settings.ogp_preview_error');
 		} finally {
-			previewLoading = false;
+			if (requestSeq === previewRequestSeq) previewLoading = false;
 		}
 	}
 
@@ -136,6 +174,7 @@
 		void ogColorTheme;
 		void pendingBackgroundBlob;
 		void backgroundRemoved;
+		void previewBackgroundVersion;
 		scheduleOgPreview();
 	});
 
@@ -146,6 +185,7 @@
 	function onBackgroundChange(blob: Blob) {
 		pendingBackgroundBlob = blob;
 		backgroundRemoved = false;
+		previewBackgroundVersion += 1;
 		if (backgroundPreviewUrl && backgroundPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(backgroundPreviewUrl);
 		backgroundPreviewUrl = URL.createObjectURL(blob);
 	}
@@ -153,6 +193,7 @@
 	function onBackgroundRemove() {
 		pendingBackgroundBlob = null;
 		backgroundRemoved = true;
+		previewBackgroundVersion += 1;
 		backgroundPreviewUrl = null;
 	}
 
@@ -376,6 +417,9 @@
 							{/if}
 						</div>
 					</div>
+					{#if previewError}
+						<p class="mt-2 text-xs text-amber-400">{previewError}</p>
+					{/if}
 				</div>
 			</div>
 

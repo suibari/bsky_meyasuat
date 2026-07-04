@@ -16,7 +16,6 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
-	const icon = await loadIcon(appUrl);
 
 	const name = creator.displayName?.trim() || creator.handle;
 	const boxName = creator.boxName?.trim() || 'めやすばこ';
@@ -27,6 +26,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 			? fetchImageAsDataUri(buildBlobCdnUrl(creator.did, creator.backgroundImageCid))
 			: Promise.resolve<string | null>(null)
 	]);
+	const icon = await loadIcon(appUrl, theme.flat.logoTitle);
 
 	const png = await renderOgPng(
 		buildUserOgSvgNode({

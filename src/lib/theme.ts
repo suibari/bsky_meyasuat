@@ -15,25 +15,9 @@ export type OgTheme = {
 	id: string;
 	swatch: string;
 	flat: { background: string } & OgTextSet;
-	photo: { overlayColor: string; overlayOpacity: number; gradientColor: string } & OgTextSet;
 };
 
 export const DEFAULT_OG_THEME_ID = 'sky';
-
-// 写真背景時は可読性を最優先し、全プリセット共通で白系テキスト+テーマ色の暗いスクリムに寄せる。
-// 任意の写真に対しても視認性を保証するため。
-const PHOTO_TEXT: OgTextSet = {
-	heading: '#ffffff',
-	headline: '#ffffff',
-	muted: '#e2e8f0',
-	headerText: '#f8fafc',
-	logoTitle: '#ffffff',
-	logoDomain: '#e2e8f0',
-	avatarFallbackBg: 'rgba(255,255,255,0.25)',
-	avatarFallbackFg: '#ffffff',
-	avatarFallbackBgAlt: 'rgba(255,255,255,0.25)',
-	avatarFallbackFgAlt: '#ffffff'
-};
 
 export const OG_THEMES: OgTheme[] = [
 	{
@@ -52,8 +36,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#0284c7',
 			avatarFallbackBgAlt: '#334155',
 			avatarFallbackFgAlt: '#cbd5e1'
-		},
-		photo: { overlayColor: '#0c4a6e', overlayOpacity: 0.45, gradientColor: '#0c4a6e', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'navy',
@@ -70,8 +53,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#1d4ed8',
 			avatarFallbackBgAlt: '#bfdbfe',
 			avatarFallbackFgAlt: '#1e3a8a'
-		},
-		photo: { overlayColor: '#172554', overlayOpacity: 0.45, gradientColor: '#172554', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'slate',
@@ -88,8 +70,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#334155',
 			avatarFallbackBgAlt: '#cbd5e1',
 			avatarFallbackFgAlt: '#334155'
-		},
-		photo: { overlayColor: '#334155', overlayOpacity: 0.45, gradientColor: '#334155', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'pink',
@@ -106,8 +87,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#e11d48',
 			avatarFallbackBgAlt: '#fecdd3',
 			avatarFallbackFgAlt: '#9f1239'
-		},
-		photo: { overlayColor: '#881337', overlayOpacity: 0.45, gradientColor: '#881337', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'pastel-purple',
@@ -124,8 +104,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#7c3aed',
 			avatarFallbackBgAlt: '#ddd6fe',
 			avatarFallbackFgAlt: '#5b21b6'
-		},
-		photo: { overlayColor: '#4c1d95', overlayOpacity: 0.45, gradientColor: '#4c1d95', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'mint',
@@ -142,8 +121,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#0f766e',
 			avatarFallbackBgAlt: '#99f6e4',
 			avatarFallbackFgAlt: '#134e4a'
-		},
-		photo: { overlayColor: '#134e4a', overlayOpacity: 0.45, gradientColor: '#134e4a', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'orange',
@@ -160,8 +138,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#b45309',
 			avatarFallbackBgAlt: '#fde68a',
 			avatarFallbackFgAlt: '#78350f'
-		},
-		photo: { overlayColor: '#78350f', overlayOpacity: 0.45, gradientColor: '#78350f', ...PHOTO_TEXT }
+		}
 	},
 	{
 		id: 'green',
@@ -178,8 +155,7 @@ export const OG_THEMES: OgTheme[] = [
 			avatarFallbackFg: '#15803d',
 			avatarFallbackBgAlt: '#bbf7d0',
 			avatarFallbackFgAlt: '#14532d'
-		},
-		photo: { overlayColor: '#14532d', overlayOpacity: 0.45, gradientColor: '#14532d', ...PHOTO_TEXT }
+		}
 	}
 ];
 

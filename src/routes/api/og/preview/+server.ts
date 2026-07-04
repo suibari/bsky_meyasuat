@@ -15,7 +15,7 @@ import {
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1分
-const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_MAX = 120;
 
 async function fileToDataUri(file: File): Promise<string> {
 	const buf = new Uint8Array(await file.arrayBuffer());
@@ -24,17 +24,25 @@ async function fileToDataUri(file: File): Promise<string> {
 	return `data:${file.type};base64,${btoa(binary)}`;
 }
 
+function pngToDataUri(png: Uint8Array): string {
+	let binary = '';
+	for (let i = 0; i < png.byteLength; i++) binary += String.fromCharCode(png[i]);
+	return `data:image/png;base64,${btoa(binary)}`;
+}
+
 export const POST: RequestHandler = async ({ request, platform, locals, url }) => {
 	const env = platform?.env;
 	if (!env || !locals.user) error(401, 'Unauthorized');
+	const user = locals.user;
 
-	const allowed = await checkRateLimit(env, `preview:${locals.user.did}`, locals.user.did, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX);
+	const allowed = await checkRateLimit(env, `preview:${user.did}`, user.did, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX);
 	if (!allowed) error(429, 'Rate limit exceeded');
-	await logRateLimit(env, `preview:${locals.user.did}`, locals.user.did);
+	await logRateLimit(env, `preview:${user.did}`, user.did);
 
 	const fd = await request.formData();
 	const colorTheme = (fd.get('colorTheme') as string | null) ?? null;
-	const variant = fd.get('variant') === 'message' ? 'message' : 'box';
+	const rawVariant = fd.get('variant');
+	const variant = rawVariant === 'message' || rawVariant === 'both' ? rawVariant : 'box';
 	const backgroundFile = fd.get('background');
 
 	let backgroundImageDataUri: string | null = null;
@@ -49,36 +57,53 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
-	const icon = await loadIcon(appUrl);
+	const icon = await loadIcon(appUrl, theme.flat.logoTitle);
 
-	const name = locals.user.displayName?.trim() || locals.user.handle;
-	const boxName = locals.user.boxName?.trim() || 'めやすばこ';
-	const avatarDataUri = locals.user.avatarUrl ? await fetchImageAsDataUri(locals.user.avatarUrl) : null;
+	const name = user.displayName?.trim() || user.handle;
+	const boxName = user.boxName?.trim() || 'めやすばこ';
+	const avatarDataUri = user.avatarUrl ? await fetchImageAsDataUri(user.avatarUrl) : null;
 
-	const node =
-		variant === 'message'
+	const buildNode = (target: 'box' | 'message') =>
+		target === 'message'
 			? buildMessageOgSvgNode({
-					body: 'これはプレビュー用のサンプル質問文です。',
-					sender: null,
-					creatorName: name,
-					boxName,
-					senderAvatarDataUri: null,
-					creatorAvatarDataUri: null,
-					icon,
-					theme,
-					backgroundImageDataUri
-				})
+				body: 'これはプレビュー用のサンプル質問文です。',
+				sender: null,
+				creatorName: name,
+				boxName,
+				senderAvatarDataUri: null,
+				creatorAvatarDataUri: null,
+				icon,
+				theme,
+				backgroundImageDataUri
+			})
 			: buildUserOgSvgNode({
-					name,
-					handle: locals.user.handle,
-					boxName,
-					avatarDataUri,
-					icon,
-					theme,
-					backgroundImageDataUri
-				});
+				name,
+				handle: user.handle,
+				boxName,
+				avatarDataUri,
+				icon,
+				theme,
+				backgroundImageDataUri
+			});
 
-	const png = await renderOgPng(node, fonts);
+	if (variant === 'both') {
+		const [boxPng, messagePng] = await Promise.all([
+			renderOgPng(buildNode('box'), fonts),
+			renderOgPng(buildNode('message'), fonts)
+		]);
+
+		return new Response(JSON.stringify({
+			box: pngToDataUri(boxPng),
+			message: pngToDataUri(messagePng)
+		}), {
+			headers: {
+				'Content-Type': 'application/json',
+				'Cache-Control': 'no-store'
+			}
+		});
+	}
+
+	const png = await renderOgPng(buildNode(variant), fonts);
 
 	return new Response(png.buffer as ArrayBuffer, {
 		headers: {

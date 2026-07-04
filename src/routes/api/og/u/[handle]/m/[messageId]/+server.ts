@@ -45,7 +45,6 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
 	await ensureInit();
 	const fonts = await loadFonts(appUrl);
-	const icon = await loadIcon(appUrl);
 
 	const bodyLimit = sender ? 150 : 190;
 	const body =
@@ -61,6 +60,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 			? fetchImageAsDataUri(buildBlobCdnUrl(creator.did, creator.backgroundImageCid))
 			: Promise.resolve<string | null>(null)
 	]);
+	const icon = await loadIcon(appUrl, theme.flat.logoTitle);
 
 	const png = await renderOgPng(
 		buildMessageOgSvgNode({

@@ -115,6 +115,8 @@
 	"settings.ogp_background_crop_confirm": "Confirm crop",
 	"settings.ogp_background_crop_cancel": "Cancel",
 	"settings.ogp_preview": "Preview",
+	"settings.ogp_preview_error": "Could not update the preview. Please try again in a moment.",
+	"settings.ogp_preview_rate_limited": "Preview updates are busy. Please wait a moment and try again.",
 	"settings.ogp_save_error": "Failed to save OGP appearance. Please try again later.",
 	"settings.language": "Language",
 	"settings.theme": "Theme",
