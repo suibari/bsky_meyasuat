@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { resolveCreatorByHandle } from '$lib/server/db.js';
-import { buildBlobCdnUrl } from '$lib/server/messageImages.js';
+import { buildBlobCdnThumbUrl } from '$lib/server/messageImages.js';
 import { getOgTheme } from '$lib/theme.js';
 import { ensureInit, loadFonts, loadIcon, fetchImageAsDataUri, buildUserOgSvgNode, renderOgPng } from '$lib/server/og.js';
 
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const [avatarDataUri, backgroundImageDataUri] = await Promise.all([
 		creator.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null),
 		creator.backgroundImageCid
-			? fetchImageAsDataUri(buildBlobCdnUrl(creator.did, creator.backgroundImageCid))
+			? fetchImageAsDataUri(buildBlobCdnThumbUrl(creator.did, creator.backgroundImageCid))
 			: Promise.resolve<string | null>(null)
 	]);
 	const icon = await loadIcon(appUrl, theme.flat.logoTitle);

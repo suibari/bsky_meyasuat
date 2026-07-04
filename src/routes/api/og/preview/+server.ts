@@ -9,7 +9,8 @@ import {
 	buildUserOgSvgNode,
 	buildMessageOgSvgNode,
 	renderOgPng,
-	fetchImageAsDataUri
+	fetchImageAsDataUri,
+	bytesToBase64
 } from '$lib/server/og.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -19,15 +20,11 @@ const RATE_LIMIT_MAX = 120;
 
 async function fileToDataUri(file: File): Promise<string> {
 	const buf = new Uint8Array(await file.arrayBuffer());
-	let binary = '';
-	for (let i = 0; i < buf.byteLength; i++) binary += String.fromCharCode(buf[i]);
-	return `data:${file.type};base64,${btoa(binary)}`;
+	return `data:${file.type};base64,${bytesToBase64(buf)}`;
 }
 
 function pngToDataUri(png: Uint8Array): string {
-	let binary = '';
-	for (let i = 0; i < png.byteLength; i++) binary += String.fromCharCode(png[i]);
-	return `data:image/png;base64,${btoa(binary)}`;
+	return `data:image/png;base64,${bytesToBase64(png)}`;
 }
 
 export const POST: RequestHandler = async ({ request, platform, locals, url }) => {

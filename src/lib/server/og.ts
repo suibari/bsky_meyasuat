@@ -43,10 +43,23 @@ function truncateText(text: string, maxLength: number, ellipsis = '...'): string
 	return text.length > maxLength ? `${text.slice(0, maxLength)}${ellipsis}` : text;
 }
 
-function svgToDataUri(svg: string): string {
+// バイト列をbase64へ。1バイトずつの文字列連結(O(n²)的なCPU・巨大中間文字列によるメモリ圧迫)を
+// 避けるため、~8KBチャンクごとに String.fromCharCode(...chunk) で部分文字列を作って連結する。
+// 背景画像(最大~1MB)など大きな入力でCloudflareのCPU/メモリ上限を超えないための対策。
+const BASE64_CHUNK_SIZE = 0x8000; // 32KB
+export function bytesToBase64(bytes: Uint8Array): string {
 	let binary = '';
-	for (let i = 0; i < svg.length; i++) binary += String.fromCharCode(svg.charCodeAt(i));
-	return `data:image/svg+xml;base64,${btoa(binary)}`;
+	for (let i = 0; i < bytes.byteLength; i += BASE64_CHUNK_SIZE) {
+		const chunk = bytes.subarray(i, i + BASE64_CHUNK_SIZE);
+		binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+	}
+	return btoa(binary);
+}
+
+function svgToDataUri(svg: string): string {
+	const bytes = new Uint8Array(svg.length);
+	for (let i = 0; i < svg.length; i++) bytes[i] = svg.charCodeAt(i) & 0xff;
+	return `data:image/svg+xml;base64,${bytesToBase64(bytes)}`;
 }
 
 export async function loadIcon(appUrl: string, color = '#0ea5e9'): Promise<string> {
@@ -55,9 +68,7 @@ export async function loadIcon(appUrl: string, color = '#0ea5e9'): Promise<strin
 	if (!iconMaskCache) {
 		const res = await fetch(`${appUrl}/icon_meyasuat.png`);
 		const bytes = new Uint8Array(await res.arrayBuffer());
-		let binary = '';
-		for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-		iconMaskCache = `data:image/png;base64,${btoa(binary)}`;
+		iconMaskCache = `data:image/png;base64,${bytesToBase64(bytes)}`;
 	}
 	const icon = svgToDataUri(`
 <svg xmlns="http://www.w3.org/2000/svg" width="700" height="700" viewBox="0 0 700 700">
@@ -82,9 +93,7 @@ export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promis
 		if (!res.ok) return null;
 		const contentType = res.headers.get('content-type') || 'image/jpeg';
 		const bytes = new Uint8Array(await res.arrayBuffer());
-		let binary = '';
-		for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-		return `data:${contentType};base64,${btoa(binary)}`;
+		return `data:${contentType};base64,${bytesToBase64(bytes)}`;
 	} catch {
 		return null;
 	} finally {

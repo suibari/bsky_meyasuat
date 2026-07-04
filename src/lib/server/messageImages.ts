@@ -8,6 +8,12 @@ export function buildBlobCdnUrl(did: string, cid: string): string {
 	return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@jpeg`;
 }
 
+// OGP背景用の縮小バリアント。背景は薄く敷くだけなので低解像度で十分。
+// フルサイズのデコード/base64/ラスタライズ負荷を抑え、CloudflareのCPU/メモリ上限超過を防ぐ。
+export function buildBlobCdnThumbUrl(did: string, cid: string): string {
+	return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`;
+}
+
 export function extractCid(blob: unknown): string | null {
 	if (!blob || typeof blob !== 'object') return null;
 	const value = blob as { ref?: unknown; $link?: unknown };
