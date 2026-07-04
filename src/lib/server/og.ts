@@ -87,8 +87,10 @@ export async function fetchImageAsDataUri(url: string, timeoutMs = 1200): Promis
 	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 	const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 	try {
-		// satori は WebP をデコードできないため、Bluesky CDN の画像は @jpeg を付けて取得する
-		const fetchUrl = url.includes('cdn.bsky.app') ? `${url}@jpeg` : url;
+		// satori は WebP をデコードできないため、Bluesky CDN の画像は @jpeg を付けて取得する。
+		// buildBlobCdnUrl/buildBlobCdnThumbUrl が返すURLは既に @jpeg 済みのため、
+		// 二重付与(...@jpeg@jpeg は404になる)しないよう既に付いている場合はスキップする。
+		const fetchUrl = url.includes('cdn.bsky.app') && !url.endsWith('@jpeg') ? `${url}@jpeg` : url;
 		const res = await fetch(fetchUrl, controller ? { signal: controller.signal } : undefined);
 		if (!res.ok) return null;
 		const contentType = res.headers.get('content-type') || 'image/jpeg';
