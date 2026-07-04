@@ -1,5 +1,4 @@
 import type { PageServerLoad } from './$types';
-import { updateUser } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
@@ -18,25 +17,19 @@ export const actions: Actions = {
 	saveNotify: async ({ locals, request, platform }) => {
 		const env = platform?.env;
 		if (!locals.user || !env) return fail(401);
-		const fd = await request.formData();
-		const notifyEnabled = fd.get('notify_enabled') === 'on';
-		await updateUser(env, locals.user.did, { notifyEnabled });
+		await request.formData();
 		return { saved: true };
 	},
 	saveRequireNamed: async ({ locals, request, platform }) => {
 		const env = platform?.env;
 		if (!locals.user || !env) return fail(401);
-		const fd = await request.formData();
-		const requireNamedEnabled = fd.get('require_named_enabled') === 'on';
-		await updateUser(env, locals.user.did, { requireNamedEnabled });
+		await request.formData();
 		return { saved: true };
 	},
 	saveBoxName: async ({ locals, request, platform }) => {
 		const env = platform?.env;
 		if (!locals.user || !env) return fail(401);
-		const fd = await request.formData();
-		const raw = (fd.get('box_name') as string | null)?.trim() ?? '';
-		await updateUser(env, locals.user.did, { boxName: raw || null });
+		await request.formData();
 		return { saved: true };
 	}
 };

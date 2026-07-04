@@ -31,7 +31,13 @@
 	let requireNamedError = $state('');
 	let lastSavedRequireNamedEnabled = initialRequireNamedEnabled();
 
-	// 設定変更を自分のPDSへ反映する（best-effort。失敗してもDB保存済みの設定は有効なままなのでUIには出さない）。
+	function initialBoxName() {
+		return data.user.boxName;
+	}
+
+	let lastSavedBoxName = initialBoxName();
+
+	// 設定変更を自分のPDSへ反映する。設定の正データは config/self。
 	async function syncConfigToPds(overrides: Partial<{
 		notifyEnabled: boolean;
 		shareHandleEnabled: boolean;
@@ -41,14 +47,15 @@
 		try {
 			const { putConfigRecord } = await import('$lib/client/oauthClient.js');
 			await putConfigRecord(data.appUrl, data.user.did, {
-				notifyEnabled: data.user.notifyEnabled,
+				notifyEnabled: lastSavedNotifyEnabled,
 				shareHandleEnabled: data.user.shareHandleEnabled,
-				requireNamedEnabled: data.user.requireNamedEnabled,
-				boxName: data.user.boxName,
+				requireNamedEnabled: lastSavedRequireNamedEnabled,
+				boxName: lastSavedBoxName,
 				...overrides
 			});
 		} catch (e) {
 			console.error('Failed to sync config to PDS', e);
+			throw e;
 		}
 	}
 
@@ -129,8 +136,13 @@
 			}
 
 			if (result.type === 'success') {
-				lastSavedNotifyEnabled = enabling;
-				void syncConfigToPds({ notifyEnabled: enabling });
+				try {
+					await syncConfigToPds({ notifyEnabled: enabling });
+					lastSavedNotifyEnabled = enabling;
+				} catch {
+					notifyEnabled = previous;
+					followError = $t('settings.notify_save_error');
+				}
 			} else {
 				notifyEnabled = previous;
 				followError = result.type === 'failure' ? $t('settings.notify_save_error') : 'Unknown error';
@@ -152,8 +164,13 @@
 
 		return async ({ result }) => {
 			if (result.type === 'success') {
-				lastSavedRequireNamedEnabled = enabling;
-				void syncConfigToPds({ requireNamedEnabled: enabling });
+				try {
+					await syncConfigToPds({ requireNamedEnabled: enabling });
+					lastSavedRequireNamedEnabled = enabling;
+				} catch {
+					requireNamedEnabled = previous;
+					requireNamedError = $t('settings.require_named_save_error');
+				}
 			} else {
 				requireNamedEnabled = previous;
 				requireNamedError = $t('settings.require_named_save_error');
@@ -170,10 +187,13 @@
 	const handleBoxNameSubmit: SubmitFunction = ({ formData }) => {
 		const raw = (formData.get('box_name') as string | null)?.trim() ?? '';
 		return async ({ result, update }) => {
-			await update();
 			if (result.type === 'success') {
-				void syncConfigToPds({ boxName: raw || null });
+				const nextBoxName = raw || null;
+				await syncConfigToPds({ boxName: nextBoxName }).then(() => {
+					lastSavedBoxName = nextBoxName;
+				}).catch(() => {});
 			}
+			await update();
 		};
 	};
 </script>

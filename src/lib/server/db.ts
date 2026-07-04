@@ -1,3 +1,5 @@
+import { getRecordByAtUri } from './atproto.js';
+
 export type User = {
 	did: string;
 	handle: string;
@@ -74,13 +76,49 @@ function toUser(row: Record<string, unknown>): User {
 		handle: row.handle as string,
 		displayName: (row.display_name as string | null) ?? null,
 		avatarUrl: (row.avatar_url as string | null) ?? null,
-		notifyEnabled: row.notify_enabled as boolean,
-		shareHandleEnabled: row.share_handle_enabled as boolean,
-		requireNamedEnabled: row.require_named_enabled as boolean,
-		boxName: (row.box_name as string | null) ?? null,
+		notifyEnabled: row.notify_enabled === true,
+		shareHandleEnabled: row.share_handle_enabled === true,
+		requireNamedEnabled: row.require_named_enabled === true,
+		boxName: typeof row.box_name === 'string' ? row.box_name : null,
 		createdAt: row.created_at as string,
 		updatedAt: row.updated_at as string
 	};
+}
+
+function readBoolean(value: unknown, fallback: boolean): boolean {
+	return typeof value === 'boolean' ? value : fallback;
+}
+
+function readNullableString(value: unknown, fallback: string | null): string | null {
+	return typeof value === 'string' ? value : fallback;
+}
+
+async function getConfigByDid(
+	did: string,
+	fallback: Pick<User, 'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName'>
+): Promise<Pick<User, 'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName'>> {
+	try {
+		const record = await getRecordByAtUri(`at://${did}/com.suibari.meyasuat.config/self`);
+		if (!record.found || !record.value) return fallback;
+		return {
+			notifyEnabled: readBoolean(record.value.notifyEnabled, fallback.notifyEnabled),
+			shareHandleEnabled: readBoolean(record.value.shareHandleEnabled, fallback.shareHandleEnabled),
+			requireNamedEnabled: readBoolean(record.value.requireNamedEnabled, fallback.requireNamedEnabled),
+			boxName: readNullableString(record.value.boxName, fallback.boxName)
+		};
+	} catch {
+		return fallback;
+	}
+}
+
+async function withPdsConfig(user: User): Promise<User> {
+	const config = await getConfigByDid(user.did, {
+		notifyEnabled: user.notifyEnabled,
+		shareHandleEnabled: user.shareHandleEnabled,
+		requireNamedEnabled: user.requireNamedEnabled,
+		boxName: user.boxName
+	});
+	return { ...user, ...config };
 }
 
 function toMessage(row: Record<string, unknown>): Message {
@@ -109,7 +147,7 @@ export async function getUserByDid(env: Env, did: string): Promise<User | null> 
 	);
 	if (!res.ok) return null;
 	const rows = await res.json() as Record<string, unknown>[];
-	return rows[0] ? toUser(rows[0]) : null;
+	return rows[0] ? withPdsConfig(toUser(rows[0])) : null;
 }
 
 export async function getUserByHandle(env: Env, handle: string): Promise<User | null> {
@@ -119,7 +157,7 @@ export async function getUserByHandle(env: Env, handle: string): Promise<User | 
 	);
 	if (!res.ok) return null;
 	const rows = await res.json() as Record<string, unknown>[];
-	return rows[0] ? toUser(rows[0]) : null;
+	return rows[0] ? withPdsConfig(toUser(rows[0])) : null;
 }
 
 export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & Partial<User>): Promise<User> {
@@ -128,7 +166,6 @@ export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & 
 		handle: user.handle,
 		display_name: user.displayName ?? null,
 		avatar_url: user.avatarUrl ?? null,
-		notify_enabled: user.notifyEnabled ?? false,
 		updated_at: new Date().toISOString()
 	};
 	const res = await fetch(`${env.POSTGREST_URL}/users`, {
@@ -141,18 +178,14 @@ export async function upsertUser(env: Env, user: Pick<User, 'did' | 'handle'> & 
 	});
 	if (!res.ok) throw new Error(`upsertUser failed: ${await res.text()}`);
 	const rows = await res.json() as Record<string, unknown>[];
-	return toUser(rows[0]);
+	return withPdsConfig(toUser(rows[0]));
 }
 
-export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl' | 'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName'>>): Promise<void> {
+export async function updateUser(env: Env, did: string, patch: Partial<Pick<User, 'handle' | 'displayName' | 'avatarUrl'>>): Promise<void> {
 	const body: Record<string, unknown> = { updated_at: new Date().toISOString() };
 	if (patch.handle !== undefined) body.handle = patch.handle;
 	if (patch.displayName !== undefined) body.display_name = patch.displayName;
 	if (patch.avatarUrl !== undefined) body.avatar_url = patch.avatarUrl;
-	if (patch.notifyEnabled !== undefined) body.notify_enabled = patch.notifyEnabled;
-	if (patch.shareHandleEnabled !== undefined) body.share_handle_enabled = patch.shareHandleEnabled;
-	if (patch.requireNamedEnabled !== undefined) body.require_named_enabled = patch.requireNamedEnabled;
-	if (patch.boxName !== undefined) body.box_name = patch.boxName;
 	await fetch(
 		`${env.POSTGREST_URL}/users?did=eq.${encodeURIComponent(did)}`,
 		{ method: 'PATCH', headers: headers(env), body: JSON.stringify(body) }

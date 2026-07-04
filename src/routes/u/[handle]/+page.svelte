@@ -28,7 +28,7 @@
 			body: JSON.stringify({ enabled: shareHandle })
 		});
 
-		// 設定を自分のPDSへ反映する（best-effort。失敗してもDB保存は完了しているのでUIには出さない）。
+		// 設定を自分のPDSへ反映する。設定の正データは config/self。
 		const user = data.user;
 		if (!user) return;
 		try {
