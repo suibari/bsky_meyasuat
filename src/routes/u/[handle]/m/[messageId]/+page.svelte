@@ -241,13 +241,21 @@
 		<p class="text-center text-sm text-slate-500 mb-4">{$t('message.no_answer_yet')}</p>
 	{/if}
 
-	<AnsweredQAList
-		items={data.relatedQA}
-		handle={data.creator.handle}
-		title={$t('box.answered_qa_title')}
-		creator={data.creator}
-		creatorHref={avatarHref(data.creator)}
-	/>
+	{#await data.relatedQA}
+		<div class="flex justify-center py-12">
+			<Spinner class="h-6 w-6 border-primary-400 border-t-transparent" />
+		</div>
+	{:then relatedQA}
+		<AnsweredQAList
+			items={relatedQA}
+			handle={data.creator.handle}
+			title={$t('box.answered_qa_title')}
+			creator={data.creator}
+			creatorHref={avatarHref(data.creator)}
+		/>
+	{:catch}
+		<p class="mt-4 text-center text-sm text-slate-500">{$t('error.generic')}</p>
+	{/await}
 
 	<!-- 自分も目安箱を作る -->
 	<p class="mt-6 text-center text-xs text-slate-600">

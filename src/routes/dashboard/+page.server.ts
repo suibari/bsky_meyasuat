@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const user = locals.user;
 	// Cookie 未送信などで user が無い場合は 500 にせず空で返す（layout が / へリダイレクト）
 	if (!user) {
-		return { messages: Promise.resolve([] as DashboardMessage[]), unreadCount: 0, page: 0, tab: 'unread', appUrl: env?.PUBLIC_APP_URL ?? '' };
+		return { messages: Promise.resolve([] as DashboardMessage[]), unreadCount: Promise.resolve(0), page: 0, tab: 'unread', appUrl: env?.PUBLIC_APP_URL ?? '' };
 	}
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
 	const tabParam = url.searchParams.get('tab');
@@ -119,7 +119,7 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 		return enrichedOrNull.filter((m): m is NonNullable<typeof m> => m !== null);
 	})();
 
-	const unreadCount = env ? await countVisibleUnread(env, user.did, cache) : 0;
+	const unreadCount: Promise<number> = env ? countVisibleUnread(env, user.did, cache) : Promise.resolve(0);
 
 	return {
 		messages,

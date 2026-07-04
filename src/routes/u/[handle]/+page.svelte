@@ -315,7 +315,7 @@
 
 	{#await data.answeredQA}
 		<div class="flex justify-center py-12">
-			<Spinner />
+			<Spinner class="h-6 w-6 border-primary-400 border-t-transparent" />
 		</div>
 	{:then answeredQA}
 		<AnsweredQAList
@@ -333,5 +333,7 @@
 				</a>
 			</div>
 		{/if}
+	{:catch}
+		<p class="mt-10 text-center text-sm text-slate-500">{$t('error.generic')}</p>
 	{/await}
 </div>

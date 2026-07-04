@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, getUserByHandle } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-import { getAnsweredMessageFromPdsById, getAnsweredMessagesFromPds, isQuestionVisibleFromPds, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
+import { createRecordCache, getAnsweredMessageFromPdsById, getAnsweredMessagesFromPds, isQuestionVisibleFromPds, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
@@ -30,17 +30,19 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		redirect(301, `/u/${actualCreator.handle}/m/${message.id}`);
 	}
 
+	const cache = createRecordCache();
+
 	// 回答済みならPDSのanswerレコードをread-throughで正とする。フレッシュな取り下げ・
 	// 回答削除の検知もここで行われる（nullなら表示すべき内容が無い＝404）。
 	let resolvedContent: { body: string; answer: string; imageUrls: string[] } | null = null;
 	let resolvedQuestion: { body: string; imageUrls: string[]; senderDid: string | null } | null = null;
 	if (message.answerRecordUri) {
-		resolvedContent = await resolveAnsweredContent(env, message);
+		resolvedContent = await resolveAnsweredContent(env, message, cache);
 		if (!resolvedContent) error(404, 'Message not found');
-	} else if (!(await isQuestionVisibleFromPds(message))) {
+	} else if (!(await isQuestionVisibleFromPds(message, cache))) {
 		error(404, 'Message not found');
 	} else {
-		resolvedQuestion = await resolveQuestionContent(message);
+		resolvedQuestion = await resolveQuestionContent(message, cache);
 		if (!resolvedQuestion) error(404, 'Message not found');
 	}
 
@@ -64,10 +66,24 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 
 	const isOwner = locals.user?.did === message.creatorDid;
 
-	const relatedQA = await getAnsweredMessagesFromPds(env, message.creatorDid, appUrl, {
-		limit: 10,
-		excludeId: message.id
-	});
+	const relatedQA = (async () => {
+		const records = await getAnsweredMessagesFromPds(env, message.creatorDid, appUrl, {
+			limit: 10,
+			excludeId: message.id
+		});
+		return (await Promise.all(records.map(async (m) => {
+			const resolved = await resolveAnsweredContent(env, m, cache);
+			if (!resolved) return null;
+			return {
+				id: m.id,
+				body: resolved.body,
+				answer: resolved.answer,
+				createdAt: m.createdAt,
+				answeredAt: m.answeredAt ?? '',
+				imageUrls: resolved.imageUrls
+			};
+		}))).filter((qa): qa is NonNullable<typeof qa> => qa !== null);
+	})();
 
 	const imageUrls = resolvedContent
 		? resolvedContent.imageUrls
@@ -91,17 +107,6 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		},
 		appUrl,
 		isOwner,
-		relatedQA: (await Promise.all(relatedQA.map(async (m) => {
-			const resolved = await resolveAnsweredContent(env, m);
-			if (!resolved) return null;
-			return {
-				id: m.id,
-				body: resolved.body,
-				answer: resolved.answer,
-				createdAt: m.createdAt,
-				answeredAt: m.answeredAt ?? '',
-				imageUrls: resolved.imageUrls
-			};
-		}))).filter((qa): qa is NonNullable<typeof qa> => qa !== null)
+		relatedQA
 	};
 };

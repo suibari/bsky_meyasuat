@@ -307,11 +307,17 @@
 
 	<div class="flex items-center justify-between mb-4">
 		<h1 class="text-xl font-bold text-slate-100">{boxName}</h1>
-		{#if data.unreadCount > 0}
-			<span class="text-xs bg-red-600 text-white px-2.5 py-1 rounded-full font-medium">
-				{$t('dashboard.unread', { values: { count: data.unreadCount } })}
-			</span>
-		{/if}
+		<!-- svelte-ignore block_empty -->
+		{#await data.unreadCount}
+		{:then unreadCount}
+			{#if unreadCount > 0}
+				<span class="text-xs bg-red-600 text-white px-2.5 py-1 rounded-full font-medium">
+					{$t('dashboard.unread', { values: { count: unreadCount } })}
+				</span>
+			{/if}
+		{:catch}
+			<!-- 未読件数の取得に失敗した場合はバッジを出さずに静かに諦める -->
+		{/await}
 	</div>
 
 	<!-- タブ -->
@@ -345,7 +351,7 @@
 	<div class="relative">
 		{#await data.messages}
 			<div class="flex justify-center py-16">
-				<Spinner />
+				<Spinner class="h-8 w-8 border-primary-500 border-t-transparent" />
 			</div>
 		{:then messages}
 			{#if messages.length === 0}
@@ -477,6 +483,11 @@
 					</div>
 				{/if}
 			{/if}
+		{:catch}
+			<div class="text-center py-16 text-slate-600">
+				<p class="text-4xl mb-3">⚠️</p>
+				<p class="font-medium">{$t('error.generic')}</p>
+			</div>
 		{/await}
 	</div>
 </div>
