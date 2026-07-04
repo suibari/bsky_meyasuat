@@ -30,6 +30,23 @@ export async function createOAuthClient(appUrl: string): Promise<BrowserOAuthCli
 	});
 }
 
+// ローカルに保存されたOAuthセッションが壊れている/削除されている場合(TokenRefreshError等)、
+// 同じdidに対するPDS呼び出しは以後すべて同じ理由で失敗し続ける。復旧できないため、
+// アプリのセッションも強制的に破棄してログイン画面へ戻す。
+export async function restoreAgent(appUrl: string, did: string): Promise<Agent> {
+	const client = await createOAuthClient(appUrl);
+	try {
+		const session = await client.restore(did);
+		return new Agent(session);
+	} catch (e) {
+		const { isExpectedSessionError } = await import('@atproto/oauth-client-browser');
+		if (isExpectedSessionError(e) && typeof window !== 'undefined') {
+			window.location.href = '/api/auth/logout';
+		}
+		throw e;
+	}
+}
+
 type ParsedAtUri = {
 	repo: string;
 	collection: string;
@@ -77,15 +94,52 @@ export async function uploadBackgroundImageToPds(agent: Agent, blob: Blob): Prom
 	return up.data.blob;
 }
 
+export type ShareEmbedInput = {
+	url: string;
+	imageUrl: string;
+	title: string;
+	description: string;
+};
+
+export type ShareEmbedResult = {
+	uri: string;
+	cid: string;
+	postUrl: string | undefined;
+};
+
+export async function postShareToBluesky(
+	appUrl: string,
+	did: string,
+	text: string,
+	embed: ShareEmbedInput
+): Promise<ShareEmbedResult> {
+	const agent = await restoreAgent(appUrl, did);
+
+	const res = await fetch(embed.imageUrl);
+	if (!res.ok) throw new Error('Failed to fetch OGP image');
+	const blob = await res.blob();
+	const up = await agent.uploadBlob(blob, { encoding: blob.type || 'image/png' });
+
+	const created = await agent.post({
+		text,
+		embed: {
+			$type: 'app.bsky.embed.external',
+			external: { uri: embed.url, title: embed.title, description: embed.description, thumb: up.data.blob }
+		}
+	});
+
+	const parsed = parseAtUri(created.uri);
+	const postUrl = parsed ? `https://bsky.app/profile/${did}/post/${parsed.rkey}` : undefined;
+	return { uri: created.uri, cid: created.cid, postUrl };
+}
+
 // 設定を自分のPDSへ反映する。config/self は1レコードにフィールドを全部含むため、
 // 呼び出し側は変更前の値も含めた完全な設定一式を渡す必要がある。
 // createdAt は既存レコードがあればそれを引き継ぎ、無ければ新規作成として現在時刻を刻む。
 // colorTheme/backgroundImage は省略時(undefined)のみ既存レコードの値を引き継ぐ
 // (null を渡すと明示的にクリアされる) — 片方だけ変更した保存で他方が消えないようにするため。
 export async function putConfigRecord(appUrl: string, did: string, config: ConfigRecordFields): Promise<void> {
-	const client = await createOAuthClient(appUrl);
-	const session = await client.restore(did);
-	const agent = new Agent(session);
+	const agent = await restoreAgent(appUrl, did);
 
 	let createdAt = new Date().toISOString();
 	let existingValue: Record<string, unknown> | undefined;
@@ -126,9 +180,7 @@ export async function deleteRecordOnPds(appUrl: string, did: string, uri: string
 	if (!parsed) throw new Error('Invalid at:// URI');
 	if (parsed.repo !== did) throw new Error('Record repo does not match signed-in user');
 
-	const client = await createOAuthClient(appUrl);
-	const session = await client.restore(did);
-	const agent = new Agent(session);
+	const agent = await restoreAgent(appUrl, did);
 	await agent.com.atproto.repo.deleteRecord({
 		repo: parsed.repo,
 		collection: parsed.collection,
@@ -143,9 +195,7 @@ export async function deleteAllRecordsInCollection(
 	did: string,
 	collection: string
 ): Promise<void> {
-	const client = await createOAuthClient(appUrl);
-	const session = await client.restore(did);
-	const agent = new Agent(session);
+	const agent = await restoreAgent(appUrl, did);
 
 	let cursor: string | undefined;
 	do {

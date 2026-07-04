@@ -213,13 +213,8 @@
 					if (backgroundRemoved) {
 						backgroundImageRef = null;
 					} else if (pendingBackgroundBlob) {
-						const [{ createOAuthClient, uploadBackgroundImageToPds }, { Agent }] = await Promise.all([
-							import('$lib/client/oauthClient.js'),
-							import('@atproto/api')
-						]);
-						const client = await createOAuthClient(data.appUrl);
-						const session = await client.restore(data.user.did);
-						const agent = new Agent(session);
+						const { restoreAgent, uploadBackgroundImageToPds } = await import('$lib/client/oauthClient.js');
+						const agent = await restoreAgent(data.appUrl, data.user.did);
 						backgroundImageRef = await uploadBackgroundImageToPds(agent, pendingBackgroundBlob);
 					}
 					await syncConfigToPds({
@@ -320,13 +315,8 @@
 		return async ({ result }) => {
 			if (enabling && data.botDid) {
 				try {
-					const [{ createOAuthClient }, { Agent }] = await Promise.all([
-						import('$lib/client/oauthClient.js'),
-						import('@atproto/api')
-					]);
-					const client = await createOAuthClient(data.appUrl);
-					const session = await client.restore(data.user.did);
-					const agent = new Agent(session);
+					const { restoreAgent } = await import('$lib/client/oauthClient.js');
+					const agent = await restoreAgent(data.appUrl, data.user.did);
 					const profile = await agent.getProfile({ actor: data.botDid });
 					if (!profile.data.viewer?.following) {
 						await agent.follow(data.botDid);

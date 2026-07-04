@@ -1,15 +1,69 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { blueskyShareUrl, xShareUrl } from '$lib/utils/share.js';
+	import { xShareUrl } from '$lib/utils/share.js';
+	import Spinner from '$lib/components/Spinner.svelte';
 
-	let { ogImageUrl, shareUrl, onClose, title }: { ogImageUrl: string; shareUrl: string; onClose: () => void; title?: string } = $props();
+	let {
+		ogImageUrl,
+		shareUrl,
+		onClose,
+		title,
+		did,
+		handle,
+		appUrl,
+		embedTitle,
+		embedDescription
+	}: {
+		ogImageUrl: string;
+		shareUrl: string;
+		onClose: () => void;
+		title?: string;
+		did: string;
+		handle: string;
+		appUrl: string;
+		embedTitle: string;
+		embedDescription: string;
+	} = $props();
+
+	const BLUESKY_MAX_CHARS = 300;
 
 	let linkCopied = $state(false);
+	let postText = $state('');
+	let posting = $state(false);
+	let postResult = $state<{ postUrl?: string } | null>(null);
+	let postError = $state(false);
 
 	async function copyShareLink() {
 		await navigator.clipboard.writeText(shareUrl);
 		linkCopied = true;
 		setTimeout(() => { linkCopied = false; }, 2000);
+	}
+
+	async function handlePost() {
+		posting = true;
+		postError = false;
+		postResult = null;
+		try {
+			const { postShareToBluesky } = await import('$lib/client/oauthClient.js');
+			const result = await postShareToBluesky(appUrl, did, postText, {
+				url: shareUrl,
+				imageUrl: ogImageUrl,
+				title: embedTitle,
+				description: embedDescription
+			});
+			postResult = { postUrl: result.postUrl };
+		} catch (e) {
+			console.error('Failed to post share to Bluesky', e);
+			postError = true;
+		} finally {
+			posting = false;
+		}
+	}
+
+	async function relogin() {
+		const { createOAuthClient } = await import('$lib/client/oauthClient.js');
+		const client = await createOAuthClient(appUrl);
+		await client.signIn(handle, { state: window.location.pathname });
 	}
 </script>
 
@@ -28,15 +82,51 @@
 			class="w-full h-auto rounded-xl border border-slate-700 mb-6"
 		/>
 
+		<div class="mb-4">
+			<textarea
+				bind:value={postText}
+				placeholder={$t('dashboard.share_post_placeholder')}
+				rows="3"
+				class="w-full resize-none rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-cyan-600"
+			></textarea>
+			<div class="text-right text-xs mt-1" class:text-red-500={postText.length > BLUESKY_MAX_CHARS} class:text-slate-500={postText.length <= BLUESKY_MAX_CHARS}>
+				{postText.length} / {BLUESKY_MAX_CHARS}
+			</div>
+		</div>
+
+		{#if postResult}
+			<div class="mb-4 text-center text-sm text-emerald-400">
+				{$t('dashboard.post_success')}
+				{#if postResult.postUrl}
+					<a href={postResult.postUrl} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-emerald-300">
+						{$t('dashboard.view_post')}
+					</a>
+				{/if}
+			</div>
+		{/if}
+
+		{#if postError}
+			<div class="mb-4 flex flex-col items-center gap-2 text-center text-sm text-red-400">
+				<span>{$t('dashboard.post_error')}</span>
+				<button onclick={relogin} class="text-slate-300 underline underline-offset-2 hover:text-slate-100">
+					{$t('dashboard.relogin_cta')}
+				</button>
+			</div>
+		{/if}
+
 		<div class="flex flex-col gap-3 mb-2">
-			<a
-				href={blueskyShareUrl(shareUrl)}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="flex items-center justify-center gap-2 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+			<button
+				onclick={handlePost}
+				disabled={posting || postText.length > BLUESKY_MAX_CHARS}
+				class="flex items-center justify-center gap-2 w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
 			>
-				{$t('dashboard.share_on_bluesky')}
-			</a>
+				{#if posting}
+					<Spinner />
+					{$t('dashboard.answer_sending')}
+				{:else}
+					{$t('dashboard.share_on_bluesky')}
+				{/if}
+			</button>
 			<a
 				href={xShareUrl(shareUrl)}
 				target="_blank"

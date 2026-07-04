@@ -50,13 +50,8 @@
 		const user = data.user;
 		if (!user) return;
 		try {
-			const [{ createOAuthClient }, { Agent }] = await Promise.all([
-				import('$lib/client/oauthClient.js'),
-				import('@atproto/api')
-			]);
-			const client = await createOAuthClient(data.appUrl);
-			const session = await client.restore(user.did);
-			const agent = new Agent(session);
+			const { restoreAgent } = await import('$lib/client/oauthClient.js');
+			const agent = await restoreAgent(data.appUrl, user.did);
 			const uploadedImages = await Promise.all(
 				compressedBlobs.map(async (blob) => {
 					const up = await agent.uploadBlob(blob, { encoding: blob.type });

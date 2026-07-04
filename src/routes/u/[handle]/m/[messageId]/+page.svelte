@@ -45,13 +45,8 @@
 
 	async function recordAnswerOnPds(answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient, parseAtUri, uploadImageUrlsToPds }, { Agent }] = await Promise.all([
-				import('$lib/client/oauthClient.js'),
-				import('@atproto/api')
-			]);
-			const client = await createOAuthClient(data.appUrl);
-			const session = await client.restore(data.creator.did);
-			const agent = new Agent(session);
+			const { restoreAgent, parseAtUri, uploadImageUrlsToPds } = await import('$lib/client/oauthClient.js');
+			const agent = await restoreAgent(data.appUrl, data.creator.did);
 
 			// questionRef には「回答時点」の質問cidを刻む。DBキャッシュではなく
 			// 常にその場でPDSから取得することで、回答後の質問改ざん検知の基準にする。
@@ -267,6 +262,11 @@
 	<ShareModal
 		ogImageUrl={ogUrl}
 		shareUrl={pageUrl}
+		did={data.creator.did}
+		handle={data.creator.handle}
+		appUrl={data.appUrl}
+		embedTitle={questionTitleText}
+		embedDescription={ogDescription}
 		onClose={() => showShareModal = false}
 	/>
 {/if}

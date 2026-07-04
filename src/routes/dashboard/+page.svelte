@@ -20,13 +20,8 @@
 		if (!user) return;
 		void (async () => {
 			try {
-				const [{ createOAuthClient, putConfigRecord }, { Agent }] = await Promise.all([
-					import('$lib/client/oauthClient.js'),
-					import('@atproto/api')
-				]);
-				const client = await createOAuthClient(data.appUrl);
-				const session = await client.restore(user.did);
-				const agent = new Agent(session);
+				const { restoreAgent, putConfigRecord } = await import('$lib/client/oauthClient.js');
+				const agent = await restoreAgent(data.appUrl, user.did);
 
 				const existing = await agent.com.atproto.repo
 					.getRecord({ repo: user.did, collection: 'com.suibari.meyasuat.config', rkey: 'self' })
@@ -71,6 +66,14 @@
 
 	const MAX_CHARS = 10000;
 
+	const sharingMessage = $derived(resolvedMessages.find((m) => m.id === sharingMessageId));
+	const sharingMessageTitle = $derived(
+		sharingMessage ? (sharingMessage.body.length > 30 ? sharingMessage.body.slice(0, 30) + '…' : sharingMessage.body) : ''
+	);
+	const sharingMessageDescription = $derived(
+		sharingMessage ? (sharingMessage.answer ?? sharingMessage.body).slice(0, 100) : ''
+	);
+
 	const boxUrl = $derived(`${data.appUrl}/u/${data.user?.handle}`);
 	const boxName = $derived(data.user?.boxName?.trim() || $t('dashboard.title'));
 
@@ -92,10 +95,8 @@
 
 	async function recordAnswerOnPds(msg: any, answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient, parseAtUri, uploadImageUrlsToPds }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
-			const client = await createOAuthClient(data.appUrl);
-			const session = await client.restore(data.user?.did ?? '');
-			const agent = new Agent(session);
+			const { restoreAgent, parseAtUri, uploadImageUrlsToPds } = await import('$lib/client/oauthClient.js');
+			const agent = await restoreAgent(data.appUrl, data.user?.did ?? '');
 
 			// questionRef には「回答時点」の質問cidを刻む。DBキャッシュではなく
 			// 常にその場でPDSから取得することで、回答後の質問改ざん検知の基準にする。
@@ -552,6 +553,11 @@
 	<ShareModal
 		ogImageUrl={ogImageUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId, data.user?.ogVersion)}
 		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
+		did={data.user?.did ?? ''}
+		handle={data.user?.handle ?? ''}
+		appUrl={data.appUrl}
+		embedTitle={sharingMessageTitle}
+		embedDescription={sharingMessageDescription}
 		onClose={() => sharingMessageId = null}
 	/>
 {/if}
@@ -561,6 +567,11 @@
 		ogImageUrl={`${data.appUrl}/api/og/u/${data.user?.handle}?v=${data.user?.ogVersion}`}
 		shareUrl={boxUrl}
 		title={$t('dashboard.share_box_title')}
+		did={data.user?.did ?? ''}
+		handle={data.user?.handle ?? ''}
+		appUrl={data.appUrl}
+		embedTitle={boxName}
+		embedDescription={$t('dashboard.share_box_description', { values: { box: boxName } })}
 		onClose={() => showBoxShare = false}
 	/>
 {/if}

@@ -80,7 +80,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const response = new Response(png.buffer as ArrayBuffer, {
 		headers: {
 			'Content-Type': 'image/png',
-			'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable'
+			'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable',
+			'Access-Control-Allow-Origin': '*'
 		}
 	});
 

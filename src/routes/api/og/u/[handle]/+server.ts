@@ -44,7 +44,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	return new Response(png.buffer as ArrayBuffer, {
 		headers: {
 			'Content-Type': 'image/png',
-			'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
+			'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+			'Access-Control-Allow-Origin': '*'
 		}
 	});
 };
