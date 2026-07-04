@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
 	import QACard from '$lib/components/QACard.svelte';
 	import ShareModal from '$lib/components/ShareModal.svelte';
@@ -11,7 +11,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const boxName = $derived(data.creator.boxName?.trim() || 'めやすばこ');
-	const ogUrl = $derived(`${data.appUrl}/api/og/${data.message.id}`);
+	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}/m/${data.message.id}`);
 	const pageUrl = $derived(`${data.appUrl}/u/${data.creator.handle}/m/${data.message.id}`);
 	const ogDescription = $derived(
 		(data.message.answer ?? data.message.body).slice(0, 100)
@@ -45,7 +45,7 @@
 
 	async function recordAnswerOnPds(answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient, parseAtUri }, { Agent }] = await Promise.all([
+			const [{ createOAuthClient, parseAtUri, uploadImageUrlsToPds }, { Agent }] = await Promise.all([
 				import('$lib/client/oauthClient.js'),
 				import('@atproto/api')
 			]);
@@ -74,14 +74,17 @@
 				}
 			}
 
+			const senderDid = (data.message as { senderDid?: string | null }).senderDid;
+			const images = senderDid ? [] : await uploadImageUrlsToPds(agent, data.message.imageUrls ?? []);
 			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.creator.did,
 				collection: 'com.suibari.meyasuat.answer',
 				record: {
 					$type: 'com.suibari.meyasuat.answer',
-					...(data.message.senderDid ? { subject: data.message.senderDid } : {}),
+					...(senderDid ? { subject: senderDid } : {}),
 					question: data.message.body,
 					...(questionRef ? { questionRef } : {}),
+					...(images.length > 0 ? { images } : {}),
 					answer,
 					url: pageUrl,
 					createdAt: new Date().toISOString()
@@ -95,6 +98,7 @@
 			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);
+			throw e;
 		}
 	}
 
@@ -109,13 +113,13 @@
 			}
 
 			const res = await fetch(`/api/messages/${data.message.id}/answer`, { method: 'DELETE' });
-			if (!res.ok) {
+			if (!res.ok && res.status !== 404) {
 				errorMsg = mapDeleteErrorByStatus(res.status);
 				return;
 			}
 
 			savedAnswer = null;
-			await invalidateAll();
+			await goto(`/u/${data.creator.handle}`);
 		} catch {
 			errorMsg = $t('dashboard.delete_error');
 		} finally {

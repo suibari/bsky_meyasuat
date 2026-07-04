@@ -135,15 +135,28 @@ export async function listRecordsByRepo(
 	collection: string,
 	limit = 50
 ): Promise<PdsListedRecord[]> {
-	const query = new URLSearchParams({
-		repo: repoDid,
-		collection,
-		limit: String(limit)
-	});
-	const res = await fetch(`https://bsky.social/xrpc/com.atproto.repo.listRecords?${query.toString()}`);
-	if (!res.ok) {
-		throw new Error(`listRecordsByRepo failed: ${res.status}`);
-	}
-	const data = await res.json() as { records?: Array<{ uri: string; cid: string; value: Record<string, unknown> }> };
-	return (data.records ?? []).filter((r) => !!r.uri && !!r.cid && !!r.value);
+	const records: PdsListedRecord[] = [];
+	let cursor: string | undefined;
+
+	do {
+		const query = new URLSearchParams({
+			repo: repoDid,
+			collection,
+			limit: String(Math.min(100, limit - records.length))
+		});
+		if (cursor) query.set('cursor', cursor);
+
+		const res = await fetch(`https://bsky.social/xrpc/com.atproto.repo.listRecords?${query.toString()}`);
+		if (!res.ok) {
+			throw new Error(`listRecordsByRepo failed: ${res.status}`);
+		}
+		const data = await res.json() as {
+			cursor?: string;
+			records?: Array<{ uri: string; cid: string; value: Record<string, unknown> }>;
+		};
+		records.push(...(data.records ?? []).filter((r) => !!r.uri && !!r.cid && !!r.value));
+		cursor = data.cursor;
+	} while (cursor && records.length < limit);
+
+	return records.slice(0, limit);
 }

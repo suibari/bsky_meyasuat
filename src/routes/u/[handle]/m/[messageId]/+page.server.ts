@@ -1,22 +1,33 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
-import { getMessageById, getUserByDid } from '$lib/server/db.js';
-import { getAnsweredMessagesFromPds, isQuestionVisibleFromPds, reconcileMessageWithPds, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
+import { getMessageById, getUserByDid, getUserByHandle } from '$lib/server/db.js';
+import { resolveHandle } from '$lib/server/atproto.js';
+import { getAnsweredMessageFromPdsById, getAnsweredMessagesFromPds, isQuestionVisibleFromPds, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
 import { resolveMessageImageUrls } from '$lib/server/messageImages.js';
 
 export const load: PageServerLoad = async ({ params, platform, locals }) => {
 	const env = platform?.env;
-	const ctx = platform?.context;
 	if (!env) error(503, 'Service unavailable');
 
+	const appUrl = env.PUBLIC_APP_URL || '';
+	const requestedHandle = params.handle.replace(/^@/, '');
+	let creator = await getUserByHandle(env, requestedHandle);
+	if (!creator) {
+		const resolved = await resolveHandle(requestedHandle);
+		if (resolved) creator = await getUserByDid(env, resolved.did);
+	}
+	if (!creator) error(404, 'Creator not found');
+
 	let message = await getMessageById(env, params.messageId);
+	if (!message) {
+		message = await getAnsweredMessageFromPdsById(env, creator.did, appUrl, params.messageId);
+	}
 	if (!message) error(404, 'Message not found');
 
-	const syncTask = reconcileMessageWithPds(env, message);
-	if (ctx) {
-		ctx.waitUntil(syncTask);
-	} else {
-		void syncTask.catch(() => {});
+	if (message.creatorDid !== creator.did) {
+		const actualCreator = await getUserByDid(env, message.creatorDid);
+		if (!actualCreator) error(404, 'Creator not found');
+		redirect(301, `/u/${actualCreator.handle}/m/${message.id}`);
 	}
 
 	// 回答済みならPDSのanswerレコードをread-throughで正とする。フレッシュな取り下げ・
@@ -33,10 +44,6 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		if (!resolvedQuestion) error(404, 'Message not found');
 	}
 
-	const creator = await getUserByDid(env, message.creatorDid);
-	if (!creator) error(404, 'Creator not found');
-
-	const requestedHandle = params.handle.replace(/^@/, '');
 	if (requestedHandle !== creator.handle) {
 		redirect(301, `/u/${creator.handle}/m/${message.id}`);
 	}
@@ -55,7 +62,6 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 		}
 	}
 
-	const appUrl = env.PUBLIC_APP_URL || '';
 	const isOwner = locals.user?.did === message.creatorDid;
 
 	const relatedQA = await getAnsweredMessagesFromPds(env, message.creatorDid, appUrl, {

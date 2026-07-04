@@ -82,7 +82,7 @@
 
 	async function recordAnswerOnPds(msg: any, answer: string): Promise<void> {
 		try {
-			const [{ createOAuthClient, parseAtUri }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
+			const [{ createOAuthClient, parseAtUri, uploadImageUrlsToPds }, { Agent }] = await Promise.all([import('$lib/client/oauthClient.js'), import('@atproto/api')]);
 			const client = await createOAuthClient(data.appUrl);
 			const session = await client.restore(data.user?.did ?? '');
 			const agent = new Agent(session);
@@ -108,6 +108,7 @@
 				}
 			}
 
+			const images = msg.senderDid ? [] : await uploadImageUrlsToPds(agent, msg.imageUrls ?? []);
 			const created = await agent.com.atproto.repo.createRecord({
 				repo: data.user?.did ?? '',
 				collection: 'com.suibari.meyasuat.answer',
@@ -116,6 +117,7 @@
 					...(msg.senderDid ? { subject: msg.senderDid } : {}),
 					question: msg.body,
 					...(questionRef ? { questionRef } : {}),
+					...(images.length > 0 ? { images } : {}),
 					answer,
 					url: `${data.appUrl}/u/${data.user?.handle}/m/${msg.id}`,
 					createdAt: new Date().toISOString()
@@ -129,6 +131,35 @@
 			});
 		} catch (e) {
 			console.error('Failed to record answer on PDS', e);
+			throw e;
+		}
+	}
+
+	async function recordRejectionOnPds(msg: any): Promise<void> {
+		if (msg.senderDid) return;
+		try {
+			const [{ createOAuthClient, uploadImageUrlsToPds }, { Agent }] = await Promise.all([
+				import('$lib/client/oauthClient.js'),
+				import('@atproto/api')
+			]);
+			const client = await createOAuthClient(data.appUrl);
+			const session = await client.restore(data.user?.did ?? '');
+			const agent = new Agent(session);
+			const images = await uploadImageUrlsToPds(agent, msg.imageUrls ?? []);
+			await agent.com.atproto.repo.createRecord({
+				repo: data.user?.did ?? '',
+				collection: 'com.suibari.meyasuat.rejection',
+				record: {
+					$type: 'com.suibari.meyasuat.rejection',
+					question: msg.body,
+					...(images.length > 0 ? { images } : {}),
+					url: `${data.appUrl}/u/${data.user?.handle}/m/${msg.id}`,
+					createdAt: new Date().toISOString()
+				}
+			});
+		} catch (e) {
+			console.error('Failed to record rejection on PDS', e);
+			throw e;
 		}
 	}
 
@@ -223,11 +254,12 @@
 			} else if (deleteTargetType === 'answer') {
 				await deleteAnswerOnPds(target);
 				const res = await fetch(`/api/messages/${deleteTargetId}/answer`, { method: 'DELETE' });
-				if (!res.ok) {
+				if (!res.ok && res.status !== 404) {
 					deleteError = mapDeleteErrorByStatus(res.status);
 					return;
 				}
 			} else {
+				await recordRejectionOnPds(target);
 				const res = await fetch(`/api/messages/${deleteTargetId}`, { method: 'DELETE' });
 				if (!res.ok) {
 					deleteError = mapDeleteErrorByStatus(res.status);

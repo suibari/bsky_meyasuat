@@ -67,5 +67,9 @@
 
 	<footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-400">
 		<p class="font-killgothic">{$t('app.name')} / {new Date().getFullYear()}</p>
+		<p class="mt-2 flex items-center justify-center gap-3">
+			<a href="/terms" class="underline underline-offset-2 transition-colors hover:text-primary-400">{$t('nav.terms')}</a>
+			<a href="/privacy" class="underline underline-offset-2 transition-colors hover:text-primary-400">{$t('nav.privacy')}</a>
+		</p>
 	</footer>
 </div>

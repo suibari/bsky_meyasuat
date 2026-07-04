@@ -270,50 +270,6 @@ export async function getMessageById(env: Env, id: string): Promise<Message | nu
 	return rows[0] ? toMessage(rows[0]) : null;
 }
 
-export async function getMessageByQuestionRecordUri(env: Env, uri: string): Promise<Message | null> {
-	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?question_record_uri=eq.${encodeURIComponent(uri)}&limit=1`,
-		{ headers: headers(env) }
-	);
-	if (!res.ok) return null;
-	const rows = await res.json() as Record<string, unknown>[];
-	return rows[0] ? toMessage(rows[0]) : null;
-}
-
-export async function createMessageFromPds(
-	env: Env,
-	data: {
-		id?: string;
-		creatorDid: string;
-		body: string;
-		senderDid: string | null;
-		questionRecordUri?: string | null;
-		answerRecordUri?: string | null;
-	}
-): Promise<Message | null> {
-	const payload: Record<string, unknown> = {
-		creator_did: data.creatorDid,
-		body: data.body,
-		image_keys: [],
-		question_record_uri: data.questionRecordUri ?? null,
-		answer_record_uri: data.answerRecordUri ?? null,
-		is_read: false
-	};
-	if (data.id) payload.id = data.id;
-
-	const res = await fetch(`${env.POSTGREST_URL}/messages`, {
-		method: 'POST',
-		headers: {
-			...headers(env),
-			Prefer: 'return=representation,resolution=ignore-duplicates'
-		},
-		body: JSON.stringify(payload)
-	});
-	if (!res.ok) return null;
-	const rows = await res.json() as Record<string, unknown>[];
-	return rows[0] ? toMessage(rows[0]) : null;
-}
-
 export async function markMessageRead(env: Env, id: string, creatorDid: string): Promise<void> {
 	await fetch(
 		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
@@ -343,51 +299,6 @@ export async function answerMessage(env: Env, id: string, creatorDid: string, an
 		}
 	);
 	if (!res.ok) await throwPostgrestError(res, 'answerMessage');
-}
-
-export async function updateMessageAnswerRef(
-	env: Env,
-	id: string,
-	creatorDid: string,
-	uri: string
-): Promise<boolean> {
-	const res = await fetch(
-		`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}&creator_did=eq.${encodeURIComponent(creatorDid)}`,
-		{
-			method: 'PATCH',
-			headers: { ...headers(env), Prefer: 'return=representation' },
-			body: JSON.stringify({ answer_record_uri: uri })
-		}
-	);
-	if (!res.ok) return false;
-	const rows = await res.json() as unknown[];
-	return rows.length > 0;
-}
-
-export async function getAnsweredMessages(
-	env: Env,
-	creatorDid: string,
-	opts: { limit?: number; offset?: number; excludeId?: string } = {}
-): Promise<Message[]> {
-	const { limit = 10, offset = 0, excludeId } = opts;
-	let url = `${env.POSTGREST_URL}/messages?creator_did=eq.${encodeURIComponent(creatorDid)}&answer_record_uri=not.is.null&order=created_at.desc&limit=${limit}&offset=${offset}`;
-	if (excludeId) url += `&id=neq.${encodeURIComponent(excludeId)}`;
-	const res = await fetch(url, { headers: headers(env) });
-	if (!res.ok) return [];
-	const rows = await res.json() as Record<string, unknown>[];
-	return rows.map(toMessage);
-}
-
-// 回答済みメッセージの本文キャッシュを剪定する。PDS上のanswerレコードで内容が
-// 確認できた後に呼ばれる想定（呼び出し元: pdsSync.ts の resolveAnsweredContent）。
-// NOT NULL制約があるため null ではなく空文字列にする。空文字列は「未回答」(null)とは
-// 区別されるため、既存の判定ロジック（answer IS NOT NULL 等）を壊さない。
-export async function pruneAnsweredContent(env: Env, id: string): Promise<void> {
-	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
-		method: 'PATCH',
-		headers: headers(env),
-		body: JSON.stringify({ body: '' })
-	});
 }
 
 export async function updateMessageBotUri(env: Env, id: string, botPostUri: string): Promise<void> {
@@ -470,40 +381,6 @@ export async function deleteBoxAndRelatedData(env: Env, did: string): Promise<vo
 		});
 		if (!res.ok) await throwPostgrestError(res, action);
 	}
-}
-
-export async function reconcileQuestionFromPds(
-	env: Env,
-	id: string,
-	data: { body: string }
-): Promise<void> {
-	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
-		method: 'PATCH',
-		headers: headers(env),
-		body: JSON.stringify({
-			body: data.body
-		})
-	});
-}
-
-export async function reconcileAnswerFromPds(
-	env: Env,
-	id: string,
-	data: { answer: string; answeredAt?: string | null }
-): Promise<void> {
-	void env;
-	void id;
-	void data;
-}
-
-export async function markAnswerMissingFromPds(env: Env, id: string): Promise<void> {
-	await fetch(`${env.POSTGREST_URL}/messages?id=eq.${encodeURIComponent(id)}`, {
-		method: 'PATCH',
-		headers: headers(env),
-		body: JSON.stringify({
-			answer_record_uri: null
-		})
-	});
 }
 
 export async function checkRateLimit(

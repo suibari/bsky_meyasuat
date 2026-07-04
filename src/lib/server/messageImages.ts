@@ -25,7 +25,14 @@ export function extractImageUrlsFromQuestionRecordValue(
 ): string[] {
 	const parsed = parseAtUri(questionRecordUri);
 	if (!parsed || !value) return [];
+	return extractImageUrlsFromRecordValue(parsed.repo, value);
+}
 
+export function extractImageUrlsFromRecordValue(
+	repoDid: string,
+	value: Record<string, unknown> | undefined
+): string[] {
+	if (!value) return [];
 	const images = value.images;
 	if (!Array.isArray(images)) return [];
 
@@ -35,7 +42,7 @@ export function extractImageUrlsFromQuestionRecordValue(
 		const image = (item as { image?: unknown }).image;
 		const cid = extractCid(image);
 		if (!cid) continue;
-		urls.push(`https://cdn.bsky.app/img/feed_fullsize/plain/${parsed.repo}/${cid}@jpeg`);
+		urls.push(`https://cdn.bsky.app/img/feed_fullsize/plain/${repoDid}/${cid}@jpeg`);
 	}
 	return urls;
 }

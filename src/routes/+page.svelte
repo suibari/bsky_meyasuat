@@ -206,6 +206,14 @@
 		>
 			{$t('about.link')}
 		</button>
+		<span class="mx-2 text-xs text-slate-600">/</span>
+		<a href="/terms" class="text-xs text-slate-400 hover:text-primary-400 underline underline-offset-2 transition-colors">
+			{$t('nav.terms')}
+		</a>
+		<span class="mx-2 text-xs text-slate-600">/</span>
+		<a href="/privacy" class="text-xs text-slate-400 hover:text-primary-400 underline underline-offset-2 transition-colors">
+			{$t('nav.privacy')}
+		</a>
 	</p>
 </section>
 

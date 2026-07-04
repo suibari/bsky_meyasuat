@@ -89,6 +89,8 @@
 			try {
 				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.answer');
 				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.question');
+				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.rejection');
+				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.config');
 			} catch (e) {
 				console.error('Failed to delete PDS records', e);
 			}
@@ -276,6 +278,19 @@
 	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
 		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.language')}</h2>
 		<LanguageSwitcher lang={data.lang as 'ja' | 'en'} />
+	</section>
+
+	<!-- 法的文書 -->
+	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
+		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.legal_title')}</h2>
+		<div class="flex flex-wrap gap-3 text-sm">
+			<a href="/terms" class="text-primary-400 underline underline-offset-2 transition-colors hover:text-primary-300">
+				{$t('settings.legal_terms_link')}
+			</a>
+			<a href="/privacy" class="text-primary-400 underline underline-offset-2 transition-colors hover:text-primary-300">
+				{$t('settings.legal_privacy_link')}
+			</a>
+		</div>
 	</section>
 
 	<!-- サインアウト -->

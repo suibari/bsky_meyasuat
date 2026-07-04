@@ -2,8 +2,7 @@
 // pdsSync のテスト用インメモリ偽実装（偽DB / 偽PDS）
 //
 // vi.mock で $lib/server/db.js と $lib/server/atproto.js をこのモジュールの
-// 実装に差し替え、状態を持たせることで「初回cid確定 → 改ざん →
-// 本文・cidが凍結されたまま」という実際の状態遷移を本文レベルで検証する。
+// 実装に差し替え、PDS read-through と改ざん検知を本文レベルで検証する。
 //
 // 偽実装の挙動は本物の db.ts / atproto.ts に準拠させている（PostgREST/XRPC への
 // fetch を、同じ入出力契約を満たすメモリ操作へ置き換えたもの）。
@@ -24,7 +23,6 @@ let cidSerial = 0;
 export function resetStores(): void {
 	messages.clear();
 	pdsRecords.clear();
-	deletedUsers.clear();
 	cidSerial = 0;
 }
 
@@ -103,19 +101,8 @@ export function parseAtUri(uri: string): ParsedAtUri | null {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Env = any;
 
-// 削除済み扱いにする箱主(DID)。getUserByDid はこの集合にあれば null を返す。
-const deletedUsers = new Set<string>();
-
-/** テストで箱主を削除済みにする（復活防止ガードの検証用）。 */
-export function markUserDeleted(did: string): void {
-	deletedUsers.add(did);
-}
-
 export const fakeDb = {
-	// 本物の getUserByDid のサブセット。既定では存在(=非null)を返し、
-	// markUserDeleted で削除済みにした DID のみ null を返す。
 	async getUserByDid(_env: Env, did: string): Promise<{ did: string } | null> {
-		if (deletedUsers.has(did)) return null;
 		return { did };
 	},
 
@@ -139,13 +126,6 @@ export const fakeDb = {
 		return rows.map((m) => ({ ...m }));
 	},
 
-	async getMessageByQuestionRecordUri(_env: Env, uri: string): Promise<Message | null> {
-		for (const m of messages.values()) {
-			if (m.questionRecordUri === uri) return { ...m };
-		}
-		return null;
-	},
-
 	async createMessage(
 		_env: Env,
 		data: { creatorDid: string; body: string; imageKeys: string[] }
@@ -155,32 +135,6 @@ export const fakeDb = {
 			creatorDid: data.creatorDid,
 			body: data.body,
 			imageKeys: data.imageKeys
-		});
-	},
-
-	async createMessageFromPds(
-		_env: Env,
-		data: {
-			id?: string;
-			creatorDid: string;
-			body: string;
-			senderDid: string | null;
-			questionRecordUri?: string | null;
-			answer?: string | null;
-			answeredAt?: string | null;
-			answerRecordUri?: string | null;
-		}
-	): Promise<Message | null> {
-		const id = data.id ?? crypto.randomUUID();
-		// Prefer: resolution=ignore-duplicates 相当。既存idなら挿入されず null。
-		if (messages.has(id)) return null;
-		return seedMessage({
-			id,
-			creatorDid: data.creatorDid,
-			body: data.body,
-			senderDid: data.senderDid,
-			questionRecordUri: data.questionRecordUri ?? null,
-			answerRecordUri: data.answerRecordUri ?? null
 		});
 	},
 
@@ -195,50 +149,6 @@ export const fakeDb = {
 		m.senderDid = parseAtUri(uri)?.repo ?? null;
 		m.body = '';
 		return true;
-	},
-
-	async updateMessageAnswerRef(
-		_env: Env,
-		id: string,
-		creatorDid: string,
-		uri: string
-	): Promise<boolean> {
-		const m = messages.get(id);
-		if (!m || m.creatorDid !== creatorDid) return false; // WHERE id AND creator_did
-		m.answerRecordUri = uri;
-		return true;
-	},
-
-	async reconcileQuestionFromPds(
-		_env: Env,
-		id: string,
-		data: { body: string }
-	): Promise<void> {
-		const m = messages.get(id);
-		if (!m) return;
-		m.body = data.body;
-	},
-
-	async reconcileAnswerFromPds(
-		_env: Env,
-		id: string,
-		data: { answer: string; answeredAt?: string | null }
-	): Promise<void> {
-		const m = messages.get(id);
-		if (!m) return;
-		void data;
-	},
-
-	async pruneAnsweredContent(_env: Env, id: string): Promise<void> {
-		const m = messages.get(id);
-		if (!m) return;
-		m.body = '';
-	},
-
-	async markAnswerMissingFromPds(_env: Env, id: string): Promise<void> {
-		const m = messages.get(id);
-		if (!m) return;
-		m.answerRecordUri = null;
 	}
 };
 

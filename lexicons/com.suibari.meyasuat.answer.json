@@ -26,6 +26,26 @@
 						"ref": "com.atproto.repo.strongRef",
 						"description": "Optional strong reference to the asker's own com.suibari.meyasuat.question record, when one exists."
 					},
+					"images": {
+						"type": "array",
+						"maxLength": 4,
+						"description": "Image snapshots of an anonymous question, copied into the box owner's repo when the answer is posted.",
+						"items": {
+							"type": "object",
+							"required": ["image"],
+							"properties": {
+								"image": {
+									"type": "blob",
+									"accept": ["image/jpeg", "image/png", "image/webp"],
+									"maxSize": 1000000
+								},
+								"alt": {
+									"type": "string",
+									"maxLength": 1000
+								}
+							}
+						}
+					},
 					"answer": {
 						"type": "string",
 						"maxLength": 30000,

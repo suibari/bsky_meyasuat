@@ -25,9 +25,19 @@
 						"type": "array",
 						"maxLength": 4,
 						"items": {
-							"type": "blob",
-							"accept": ["image/jpeg", "image/png", "image/webp"],
-							"maxSize": 1000000
+							"type": "object",
+							"required": ["image"],
+							"properties": {
+								"image": {
+									"type": "blob",
+									"accept": ["image/jpeg", "image/png", "image/webp"],
+									"maxSize": 1000000
+								},
+								"alt": {
+									"type": "string",
+									"maxLength": 1000
+								}
+							}
 						}
 					},
 					"url": {

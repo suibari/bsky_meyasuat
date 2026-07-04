@@ -52,6 +52,24 @@ export type ConfigRecordFields = {
 	boxName: string | null;
 };
 
+export type PdsImage = {
+	image: unknown;
+	alt: string;
+};
+
+export async function uploadImageUrlsToPds(agent: Agent, imageUrls: string[]): Promise<PdsImage[]> {
+	const images: PdsImage[] = [];
+	for (const url of imageUrls.slice(0, 4)) {
+		const res = await fetch(url);
+		if (res.status === 404) continue;
+		if (!res.ok) throw new Error('Failed to fetch image for PDS copy');
+		const blob = await res.blob();
+		const up = await agent.uploadBlob(blob, { encoding: blob.type || 'image/jpeg' });
+		images.push({ image: up.data.blob, alt: '' });
+	}
+	return images;
+}
+
 // 設定を自分のPDSへ反映する。config/self は1レコードにフィールドを全部含むため、
 // 呼び出し側は変更前の値も含めた完全な設定一式を渡す必要がある。
 // createdAt は既存レコードがあればそれを引き継ぎ、無ければ新規作成として現在時刻を刻む。

@@ -6,15 +6,12 @@ import {
 	filterMessagesByLiveQuestion,
 	getAnsweredMessagesFromPds,
 	getSentMessagesFromPds,
-	ingestCreatesFromPdsForUser,
-	reconcileMessagesWithPds,
 	resolveAnsweredContent,
 	resolveQuestionContent
 } from '$lib/server/pdsSync.js';
 
 export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	const env = platform?.env;
-	const ctx = platform?.context;
 	const user = locals.user;
 	// Cookie 未送信などで user が無い場合は 500 にせず空で返す（layout が / へリダイレクト）
 	if (!user) {
@@ -52,19 +49,6 @@ export const load: PageServerLoad = async ({ locals, platform, url }) => {
 	};
 
 	const [messages, unreadCount] = await loadMessages();
-	if (env) {
-		const syncTask = (async () => {
-			await ingestCreatesFromPdsForUser(env, user.did, env.PUBLIC_APP_URL ?? '');
-			if (messages.length > 0) {
-				await reconcileMessagesWithPds(env, messages);
-			}
-		})();
-		if (ctx) {
-			ctx.waitUntil(syncTask);
-		} else {
-			void syncTask.catch(() => {});
-		}
-	}
 
 	const enrichedOrNull = await Promise.all(messages.map(async (m) => {
 		let sender = null;

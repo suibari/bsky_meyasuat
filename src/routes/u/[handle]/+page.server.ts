@@ -2,12 +2,11 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getUserByHandle } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-import { getAnsweredMessagesFromPds, ingestCreatesFromPdsForUser, reconcileMessagesWithPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import { getAnsweredMessagesFromPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { isTurnstileEnabled } from '$lib/server/turnstile.js';
 
 export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const env = platform?.env;
-	const ctx = platform?.context;
 	const handle = params.handle.replace(/^@/, '');
 
 	// DB でハンドルを検索し、なければ AT Protocol で解決を試みる
@@ -30,20 +29,6 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const answeredMessages = env
 		? await getAnsweredMessagesFromPds(env, user.did, appUrl, { limit: 10, offset: page * 10 })
 		: [];
-
-	if (env) {
-		const syncTask = (async () => {
-			await ingestCreatesFromPdsForUser(env, user.did, appUrl);
-			if (answeredMessages.length > 0) {
-				await reconcileMessagesWithPds(env, answeredMessages);
-			}
-		})();
-		if (ctx) {
-			ctx.waitUntil(syncTask);
-		} else {
-			void syncTask.catch(() => {});
-		}
-	}
 
 	const answeredQA = env
 		? (await Promise.all(answeredMessages.map(async (m) => {

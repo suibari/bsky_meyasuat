@@ -1,0 +1,52 @@
+{
+	"lexicon": 1,
+	"id": "com.suibari.meyasuat.rejection",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A rejected anonymous question, recorded in the box owner's own repo before the app deletes its local copy.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": ["question", "url", "createdAt"],
+				"properties": {
+					"question": {
+						"type": "string",
+						"maxLength": 30000,
+						"maxGraphemes": 10000,
+						"description": "Text snapshot of the anonymous question being rejected."
+					},
+					"images": {
+						"type": "array",
+						"maxLength": 4,
+						"description": "Image snapshots of the rejected anonymous question.",
+						"items": {
+							"type": "object",
+							"required": ["image"],
+							"properties": {
+								"image": {
+									"type": "blob",
+									"accept": ["image/jpeg", "image/png", "image/webp"],
+									"maxSize": 1000000
+								},
+								"alt": {
+									"type": "string",
+									"maxLength": 1000
+								}
+							}
+						}
+					},
+					"url": {
+						"type": "string",
+						"format": "uri",
+						"description": "Link to the meyasuat message page before deletion."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}
