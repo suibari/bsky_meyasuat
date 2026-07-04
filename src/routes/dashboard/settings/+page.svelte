@@ -89,7 +89,6 @@
 			try {
 				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.answer');
 				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.question');
-				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.rejection');
 				await deleteAllRecordsInCollection(data.appUrl, data.user.did, 'com.suibari.meyasuat.config');
 			} catch (e) {
 				console.error('Failed to delete PDS records', e);

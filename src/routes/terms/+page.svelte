@@ -27,7 +27,7 @@
 		<p class="text-sm text-slate-300 leading-relaxed">{$t('terms.article2_body')}</p>
 		<ol class="mt-3 list-decimal pl-5 space-y-2 text-sm text-slate-300 leading-relaxed">
 			<li>{$t('terms.article2_item1')}</li>
-			<li>{$t('terms.article2_item2')}</li>
+			<li>{@html $t('terms.article2_item2')}</li>
 			<li>{$t('terms.article2_item3')}</li>
 		</ol>
 	</section>

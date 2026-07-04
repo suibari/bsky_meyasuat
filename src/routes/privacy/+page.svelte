@@ -36,7 +36,7 @@
 		<h2 class="text-base font-bold text-primary-400 mt-8 mb-2">{$t('privacy.section1_title')}</h2>
 		<ul class="list-disc pl-5 space-y-2 text-sm text-slate-300 leading-relaxed">
 			{#each section1Items as key}
-				<li>{$t(key)}</li>
+				<li>{@html $t(key)}</li>
 			{/each}
 		</ul>
 	</section>
@@ -45,7 +45,7 @@
 		<h2 class="text-base font-bold text-primary-400 mt-8 mb-2">{$t('privacy.section2_title')}</h2>
 		<ul class="list-disc pl-5 space-y-2 text-sm text-slate-300 leading-relaxed">
 			{#each section2Items as key}
-				<li>{$t(key)}</li>
+				<li>{@html $t(key)}</li>
 			{/each}
 		</ul>
 	</section>
@@ -54,7 +54,7 @@
 		<h2 class="text-base font-bold text-primary-400 mt-8 mb-2">{$t('privacy.section3_title')}</h2>
 		<ul class="list-disc pl-5 space-y-2 text-sm text-slate-300 leading-relaxed">
 			{#each section3Items as key}
-				<li>{$t(key)}</li>
+				<li>{@html $t(key)}</li>
 			{/each}
 		</ul>
 	</section>

@@ -135,34 +135,6 @@
 		}
 	}
 
-	async function recordRejectionOnPds(msg: any): Promise<void> {
-		if (msg.senderDid) return;
-		try {
-			const [{ createOAuthClient, uploadImageUrlsToPds }, { Agent }] = await Promise.all([
-				import('$lib/client/oauthClient.js'),
-				import('@atproto/api')
-			]);
-			const client = await createOAuthClient(data.appUrl);
-			const session = await client.restore(data.user?.did ?? '');
-			const agent = new Agent(session);
-			const images = await uploadImageUrlsToPds(agent, msg.imageUrls ?? []);
-			await agent.com.atproto.repo.createRecord({
-				repo: data.user?.did ?? '',
-				collection: 'com.suibari.meyasuat.rejection',
-				record: {
-					$type: 'com.suibari.meyasuat.rejection',
-					question: msg.body,
-					...(images.length > 0 ? { images } : {}),
-					url: `${data.appUrl}/u/${data.user?.handle}/m/${msg.id}`,
-					createdAt: new Date().toISOString()
-				}
-			});
-		} catch (e) {
-			console.error('Failed to record rejection on PDS', e);
-			throw e;
-		}
-	}
-
 	async function deleteQuestionOnPds(msg: any): Promise<void> {
 		if (!data.user || !msg.questionRecordUri) return;
 		await deleteRecordOnPds(data.appUrl, data.user.did, msg.questionRecordUri);
@@ -259,7 +231,6 @@
 					return;
 				}
 			} else {
-				await recordRejectionOnPds(target);
 				const res = await fetch(`/api/messages/${deleteTargetId}`, { method: 'DELETE' });
 				if (!res.ok) {
 					deleteError = mapDeleteErrorByStatus(res.status);
