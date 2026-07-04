@@ -25,13 +25,35 @@
 // このモジュールはPDSを読み取るだけで、DBへメッセージ本文を取り込まない。
 // =============================================================================
 
-import { getRecordByAtUri, listRecordsByRepo, parseAtUri, type PdsListedRecord } from '$lib/server/atproto.js';
+import {
+	getRecordByAtUri,
+	listRecordsByRepo,
+	parseAtUri,
+	type PdsListedRecord,
+	type PdsRecordLookupResult
+} from '$lib/server/atproto.js';
 import type { Message } from '$lib/server/db.js';
 import { getMessages, getMessageById } from '$lib/server/db.js';
 import { extractImageUrlsFromQuestionRecordValue, extractImageUrlsFromRecordValue } from '$lib/server/messageImages.js';
 import { r2KeyToUrl } from '$lib/server/r2.js';
 
 type Env = App.Platform['env'];
+
+export type RecordCache = Map<string, Promise<PdsRecordLookupResult>>;
+
+export function createRecordCache(): RecordCache {
+	return new Map();
+}
+
+function getRecordCached(uri: string, cache?: RecordCache): Promise<PdsRecordLookupResult> {
+	if (!cache) return getRecordByAtUri(uri);
+	let pending = cache.get(uri);
+	if (!pending) {
+		pending = getRecordByAtUri(uri);
+		cache.set(uri, pending);
+	}
+	return pending;
+}
 
 function logSkippedRecord(reason: string, uri: string, details?: Record<string, unknown>): void {
 	console.warn('[pds-sync] skipped record', {
@@ -75,11 +97,11 @@ function parseMessageIdFromUrl(url: string | null, appUrl: string): string | nul
  * question_record_uri がある記名質問だけPDSへ問い合わせ、404なら取り下げ済みとして
  * 表示しない。取得失敗は保守的に非表示にする。
  */
-export async function isQuestionVisibleFromPds(message: Message): Promise<boolean> {
+export async function isQuestionVisibleFromPds(message: Message, cache?: RecordCache): Promise<boolean> {
 	if (!message.senderDid || !message.questionRecordUri) return true;
 
 	try {
-		const question = await getRecordByAtUri(message.questionRecordUri);
+		const question = await getRecordCached(message.questionRecordUri, cache);
 		return question.found;
 	} catch (e) {
 		logSkippedRecord('question-live-check-failed', message.questionRecordUri, {
@@ -90,14 +112,14 @@ export async function isQuestionVisibleFromPds(message: Message): Promise<boolea
 	}
 }
 
-export async function filterMessagesByLiveQuestion(messages: Message[]): Promise<Message[]> {
-	const visible = await Promise.all(messages.map((m) => isQuestionVisibleFromPds(m)));
+export async function filterMessagesByLiveQuestion(messages: Message[], cache?: RecordCache): Promise<Message[]> {
+	const visible = await Promise.all(messages.map((m) => isQuestionVisibleFromPds(m, cache)));
 	return messages.filter((_, i) => visible[i]);
 }
 
-export async function countVisibleUnread(env: Env, creatorDid: string): Promise<number> {
+export async function countVisibleUnread(env: Env, creatorDid: string, cache?: RecordCache): Promise<number> {
 	const unread = await getMessages(env, creatorDid, { unreadOnly: true, limit: 1000 });
-	const visible = await filterMessagesByLiveQuestion(unread);
+	const visible = await filterMessagesByLiveQuestion(unread, cache);
 	return visible.length;
 }
 
@@ -145,11 +167,13 @@ export async function getAnsweredMessagesFromPds(
 		return bt.localeCompare(at);
 	});
 	const out: Message[] = [];
-	for (const rec of sorted) {
+	const messages = await Promise.all(sorted.map(async (rec) => {
 		const messageId = parseMessageIdFromUrl(asString(rec.value.url), appUrl);
-		if (!messageId || messageId === excludeId) continue;
+		if (!messageId || messageId === excludeId) return null;
 		const stored = await getMessageById(env, messageId);
-		const message = messageFromAnswerRecord(rec, stored, appUrl);
+		return messageFromAnswerRecord(rec, stored, appUrl);
+	}));
+	for (const message of messages) {
 		if (message) out.push(message);
 	}
 	return out.slice(offset, offset + limit);
@@ -186,14 +210,14 @@ export async function getSentMessagesFromPds(
 		return bt.localeCompare(at);
 	});
 	const out: Message[] = [];
-	for (const rec of sorted) {
+	const messages = await Promise.all(sorted.map(async (rec) => {
 		const text = asString(rec.value.text);
 		const subjectDid = asDid(rec.value.subject);
 		const createdAt = asString(rec.value.createdAt);
 		const messageId = parseMessageIdFromUrl(asString(rec.value.url), appUrl);
-		if (!text || !subjectDid || !createdAt || !messageId) continue;
+		if (!text || !subjectDid || !createdAt || !messageId) return null;
 		const stored = await getMessageById(env, messageId);
-		out.push({
+		return {
 			id: messageId,
 			creatorDid: subjectDid,
 			body: text,
@@ -205,7 +229,10 @@ export async function getSentMessagesFromPds(
 			senderDid,
 			questionRecordUri: rec.uri,
 			answerRecordUri: stored?.answerRecordUri ?? null
-		});
+		};
+	}));
+	for (const message of messages) {
+		if (message) out.push(message);
 	}
 	return out.slice(offset, offset + limit);
 }
@@ -216,14 +243,14 @@ export type ResolvedQuestionContent = {
 	senderDid: string | null;
 };
 
-export async function resolveQuestionContent(message: Message): Promise<ResolvedQuestionContent | null> {
+export async function resolveQuestionContent(message: Message, cache?: RecordCache): Promise<ResolvedQuestionContent | null> {
 	if (!message.questionRecordUri) {
 		const imageUrls = message.imageKeys.length > 0 ? message.imageKeys.map((k) => r2KeyToUrl(k)) : [];
 		return { body: message.body, imageUrls, senderDid: null };
 	}
 
 	try {
-		const question = await getRecordByAtUri(message.questionRecordUri);
+		const question = await getRecordCached(message.questionRecordUri, cache);
 		if (!question.found || !question.value) return null;
 		const body = asString(question.value.text) ?? message.body;
 		const imageUrls = extractImageUrlsFromQuestionRecordValue(message.questionRecordUri, question.value);
@@ -263,10 +290,14 @@ export type ResolvedAnsweredContent = {
  *
  * 戻り値が null の場合、呼び出し側は一覧からこのメッセージを除外する。
  */
-export async function resolveAnsweredContent(_env: Env, message: Message): Promise<ResolvedAnsweredContent | null> {
+export async function resolveAnsweredContent(
+	_env: Env,
+	message: Message,
+	cache?: RecordCache
+): Promise<ResolvedAnsweredContent | null> {
 	if (!message.answerRecordUri) return null;
 
-	const answerRecord = await getRecordByAtUri(message.answerRecordUri);
+	const answerRecord = await getRecordCached(message.answerRecordUri, cache);
 	if (answerRecord.notFound) {
 		return null;
 	}
@@ -277,7 +308,7 @@ export async function resolveAnsweredContent(_env: Env, message: Message): Promi
 	let imageUrls: string[] = [];
 
 	if (message.senderDid && message.questionRecordUri) {
-		const question = await getRecordByAtUri(message.questionRecordUri);
+		const question = await getRecordCached(message.questionRecordUri, cache);
 		if (question.notFound) {
 			// 取り下げ済み。
 			return null;

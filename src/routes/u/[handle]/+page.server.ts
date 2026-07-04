@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getUserByHandle } from '$lib/server/db.js';
 import { resolveHandle } from '$lib/server/atproto.js';
-import { getAnsweredMessagesFromPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
+import { createRecordCache, getAnsweredMessagesFromPds, resolveAnsweredContent } from '$lib/server/pdsSync.js';
 import { isTurnstileEnabled } from '$lib/server/turnstile.js';
 
 export const load: PageServerLoad = async ({ params, platform, url }) => {
@@ -25,14 +25,13 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 	const turnstileSiteKey = env?.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 	const turnstileEnabled = isTurnstileEnabled(url);
 	const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10));
+	const cache = createRecordCache();
 
-	const answeredMessages = env
-		? await getAnsweredMessagesFromPds(env, user.did, appUrl, { limit: 10, offset: page * 10 })
-		: [];
-
-	const answeredQA = env
-		? (await Promise.all(answeredMessages.map(async (m) => {
-				const resolved = await resolveAnsweredContent(env, m);
+	const answeredQA = (async () => {
+		if (!env) return [];
+		const answeredMessages = await getAnsweredMessagesFromPds(env, user.did, appUrl, { limit: 10, offset: page * 10 });
+		return (await Promise.all(answeredMessages.map(async (m) => {
+				const resolved = await resolveAnsweredContent(env, m, cache);
 				if (!resolved) return null;
 				return {
 					id: m.id,
@@ -43,7 +42,7 @@ export const load: PageServerLoad = async ({ params, platform, url }) => {
 					imageUrls: resolved.imageUrls
 				};
 			}))).filter((qa): qa is NonNullable<typeof qa> => qa !== null)
-		: [];
+	})();
 
 	return {
 		creator: {

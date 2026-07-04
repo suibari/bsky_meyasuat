@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { Turnstile } from 'svelte-turnstile';
 	import AnsweredQAList from '$lib/components/AnsweredQAList.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import QuestionTemplatePicker from '$lib/components/QuestionTemplatePicker.svelte';
 	import type { PageData } from './$types';
@@ -312,19 +313,25 @@
 		</div>
 	{/if}
 
-	<AnsweredQAList
-		items={data.answeredQA}
-		handle={data.creator.handle}
-		title={$t('box.answered_qa_title')}
-		creator={data.creator}
-		creatorHref="https://bsky.app/profile/{data.creator.handle}"
-	/>
-
-	{#if data.answeredQA.length === 10}
-		<div class="mt-4 text-center">
-			<a href="?page={data.page + 1}" class="text-sm text-primary-400 hover:underline">
-				{$t('box.view_more')}
-			</a>
+	{#await data.answeredQA}
+		<div class="flex justify-center py-12">
+			<Spinner />
 		</div>
-	{/if}
+	{:then answeredQA}
+		<AnsweredQAList
+			items={answeredQA}
+			handle={data.creator.handle}
+			title={$t('box.answered_qa_title')}
+			creator={data.creator}
+			creatorHref="https://bsky.app/profile/{data.creator.handle}"
+		/>
+
+		{#if answeredQA.length === 10}
+			<div class="mt-4 text-center">
+				<a href="?page={data.page + 1}" class="text-sm text-primary-400 hover:underline">
+					{$t('box.view_more')}
+				</a>
+			</div>
+		{/if}
+	{/await}
 </div>
