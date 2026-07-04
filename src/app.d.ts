@@ -16,6 +16,9 @@ declare global {
 				shareHandleEnabled: boolean;
 				requireNamedEnabled: boolean;
 				boxName: string | null;
+				colorTheme: string | null;
+				backgroundImageCid: string | null;
+				ogVersion: string;
 			} | null;
 			sessionId: string | null;
 			lang: 'ja' | 'en';

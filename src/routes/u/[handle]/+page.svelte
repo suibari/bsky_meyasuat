@@ -10,7 +10,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const boxName = $derived(data.creator.boxName?.trim() || $t('dashboard.title'));
-	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}`);
+	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}?v=${data.creator.ogVersion}`);
 	const creatorName = $derived(data.creator.displayName ?? data.creator.handle);
 
 	let body = $state('');

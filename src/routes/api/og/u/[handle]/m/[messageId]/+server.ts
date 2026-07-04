@@ -2,6 +2,8 @@ import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { getMessageById, getUserByDid, resolveCreatorByHandle } from '$lib/server/db.js';
 import { getAnsweredMessageFromPdsById, resolveAnsweredContent, resolveQuestionContent } from '$lib/server/pdsSync.js';
+import { buildBlobCdnUrl } from '$lib/server/messageImages.js';
+import { getOgTheme } from '$lib/theme.js';
 import {
 	ensureInit,
 	loadFonts,
@@ -51,9 +53,13 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const creatorName = creator.displayName?.trim() || creator.handle || 'unknown';
 	const boxName = creator.boxName?.trim() || 'めやすばこ';
 
-	const [senderAvatarDataUri, creatorAvatarDataUri] = await Promise.all([
+	const theme = getOgTheme(creator.colorTheme);
+	const [senderAvatarDataUri, creatorAvatarDataUri, backgroundImageDataUri] = await Promise.all([
 		sender?.avatarUrl ? fetchImageAsDataUri(sender.avatarUrl) : Promise.resolve<string | null>(null),
-		creator.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null)
+		creator.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null),
+		creator.backgroundImageCid
+			? fetchImageAsDataUri(buildBlobCdnUrl(creator.did, creator.backgroundImageCid))
+			: Promise.resolve<string | null>(null)
 	]);
 
 	const png = await renderOgPng(
@@ -64,7 +70,9 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 			boxName,
 			senderAvatarDataUri,
 			creatorAvatarDataUri,
-			icon
+			icon,
+			theme,
+			backgroundImageDataUri
 		}),
 		fonts
 	);

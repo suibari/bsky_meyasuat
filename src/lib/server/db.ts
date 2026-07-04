@@ -1,4 +1,5 @@
 import { getRecordByAtUri, parseAtUri, resolveHandle } from './atproto.js';
+import { extractCid } from './messageImages.js';
 
 export type User = {
 	did: string;
@@ -9,6 +10,9 @@ export type User = {
 	shareHandleEnabled: boolean;
 	requireNamedEnabled: boolean;
 	boxName: string | null;
+	colorTheme: string | null;
+	backgroundImageCid: string | null;
+	ogVersion: string;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -76,6 +80,9 @@ function toUser(row: Record<string, unknown>): User {
 		shareHandleEnabled: row.share_handle_enabled === true,
 		requireNamedEnabled: row.require_named_enabled === true,
 		boxName: typeof row.box_name === 'string' ? row.box_name : null,
+		colorTheme: null,
+		backgroundImageCid: null,
+		ogVersion: 'default-nobg',
 		createdAt: row.created_at as string,
 		updatedAt: row.updated_at as string
 	};
@@ -89,10 +96,16 @@ function readNullableString(value: unknown, fallback: string | null): string | n
 	return typeof value === 'string' ? value : fallback;
 }
 
-async function getConfigByDid(
-	did: string,
-	fallback: Pick<User, 'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName'>
-): Promise<Pick<User, 'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName'>> {
+type PdsConfigFields = Pick<
+	User,
+	'notifyEnabled' | 'shareHandleEnabled' | 'requireNamedEnabled' | 'boxName' | 'colorTheme' | 'backgroundImageCid'
+>;
+
+function computeOgVersion(colorTheme: string | null, backgroundImageCid: string | null): string {
+	return `${colorTheme ?? 'default'}-${backgroundImageCid ? backgroundImageCid.slice(0, 10) : 'nobg'}`;
+}
+
+async function getConfigByDid(did: string, fallback: PdsConfigFields): Promise<PdsConfigFields> {
 	try {
 		const record = await getRecordByAtUri(`at://${did}/com.suibari.meyasuat.config/self`);
 		if (!record.found || !record.value) return fallback;
@@ -100,7 +113,9 @@ async function getConfigByDid(
 			notifyEnabled: readBoolean(record.value.notifyEnabled, fallback.notifyEnabled),
 			shareHandleEnabled: readBoolean(record.value.shareHandleEnabled, fallback.shareHandleEnabled),
 			requireNamedEnabled: readBoolean(record.value.requireNamedEnabled, fallback.requireNamedEnabled),
-			boxName: readNullableString(record.value.boxName, fallback.boxName)
+			boxName: readNullableString(record.value.boxName, fallback.boxName),
+			colorTheme: readNullableString(record.value.colorTheme, fallback.colorTheme),
+			backgroundImageCid: extractCid(record.value.backgroundImage) ?? fallback.backgroundImageCid
 		};
 	} catch {
 		return fallback;
@@ -112,9 +127,15 @@ async function withPdsConfig(user: User): Promise<User> {
 		notifyEnabled: user.notifyEnabled,
 		shareHandleEnabled: user.shareHandleEnabled,
 		requireNamedEnabled: user.requireNamedEnabled,
-		boxName: user.boxName
+		boxName: user.boxName,
+		colorTheme: user.colorTheme,
+		backgroundImageCid: user.backgroundImageCid
 	});
-	return { ...user, ...config };
+	return {
+		...user,
+		...config,
+		ogVersion: computeOgVersion(config.colorTheme, config.backgroundImageCid)
+	};
 }
 
 function toMessage(row: Record<string, unknown>): Message {

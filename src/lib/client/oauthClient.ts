@@ -50,6 +50,8 @@ export type ConfigRecordFields = {
 	shareHandleEnabled: boolean;
 	requireNamedEnabled: boolean;
 	boxName: string | null;
+	colorTheme?: string | null;
+	backgroundImage?: unknown;
 };
 
 export type PdsImage = {
@@ -70,26 +72,37 @@ export async function uploadImageUrlsToPds(agent: Agent, imageUrls: string[]): P
 	return images;
 }
 
+export async function uploadBackgroundImageToPds(agent: Agent, blob: Blob): Promise<unknown> {
+	const up = await agent.uploadBlob(blob, { encoding: blob.type || 'image/jpeg' });
+	return up.data.blob;
+}
+
 // 設定を自分のPDSへ反映する。config/self は1レコードにフィールドを全部含むため、
 // 呼び出し側は変更前の値も含めた完全な設定一式を渡す必要がある。
 // createdAt は既存レコードがあればそれを引き継ぎ、無ければ新規作成として現在時刻を刻む。
+// colorTheme/backgroundImage は省略時(undefined)のみ既存レコードの値を引き継ぐ
+// (null を渡すと明示的にクリアされる) — 片方だけ変更した保存で他方が消えないようにするため。
 export async function putConfigRecord(appUrl: string, did: string, config: ConfigRecordFields): Promise<void> {
 	const client = await createOAuthClient(appUrl);
 	const session = await client.restore(did);
 	const agent = new Agent(session);
 
 	let createdAt = new Date().toISOString();
+	let existingValue: Record<string, unknown> | undefined;
 	try {
 		const existing = await agent.com.atproto.repo.getRecord({
 			repo: did,
 			collection: 'com.suibari.meyasuat.config',
 			rkey: 'self'
 		});
-		const existingCreatedAt = (existing.data.value as { createdAt?: unknown })?.createdAt;
-		if (typeof existingCreatedAt === 'string') createdAt = existingCreatedAt;
+		existingValue = existing.data.value as Record<string, unknown>;
+		if (typeof existingValue?.createdAt === 'string') createdAt = existingValue.createdAt;
 	} catch {
 		// レコード未作成（初回書き込み）。新規作成として扱う。
 	}
+
+	const colorTheme = config.colorTheme !== undefined ? config.colorTheme : (existingValue?.colorTheme as string | undefined) ?? null;
+	const backgroundImage = config.backgroundImage !== undefined ? config.backgroundImage : existingValue?.backgroundImage ?? null;
 
 	await agent.com.atproto.repo.putRecord({
 		repo: did,
@@ -101,6 +114,8 @@ export async function putConfigRecord(appUrl: string, did: string, config: Confi
 			shareHandleEnabled: config.shareHandleEnabled,
 			requireNamedEnabled: config.requireNamedEnabled,
 			...(config.boxName ? { boxName: config.boxName } : {}),
+			...(colorTheme ? { colorTheme } : {}),
+			...(backgroundImage ? { backgroundImage } : {}),
 			createdAt
 		}
 	});

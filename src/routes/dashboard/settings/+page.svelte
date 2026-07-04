@@ -7,7 +7,10 @@
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import OgThemePicker from '$lib/components/OgThemePicker.svelte';
+	import OgBackgroundUploader from '$lib/components/OgBackgroundUploader.svelte';
 	import { deleteAllRecordsInCollection } from '$lib/client/oauthClient.js';
+	import { DEFAULT_OG_THEME_ID } from '$lib/theme.js';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -43,6 +46,8 @@
 		shareHandleEnabled: boolean;
 		requireNamedEnabled: boolean;
 		boxName: string | null;
+		colorTheme: string | null;
+		backgroundImage: unknown;
 	}>) {
 		try {
 			const { putConfigRecord } = await import('$lib/client/oauthClient.js');
@@ -58,6 +63,129 @@
 			throw e;
 		}
 	}
+
+	// OGP見た目(カラーテーマ・背景画像)
+	let ogColorTheme = $state(data.user.colorTheme ?? DEFAULT_OG_THEME_ID);
+	let lastSavedOgColorTheme = ogColorTheme;
+	let pendingBackgroundBlob = $state<Blob | null>(null);
+	let backgroundRemoved = $state(false);
+	let backgroundPreviewUrl = $state(data.backgroundImageUrl);
+	let ogSaving = $state(false);
+	let ogError = $state('');
+	let ogSaved = $state(false);
+	let previewBoxUrl = $state<string | null>(null);
+	let previewMessageUrl = $state<string | null>(null);
+	let previewLoading = $state(false);
+	let cachedExistingBackgroundBlob: Blob | null = null;
+	let cachedExistingBackgroundUrl: string | null = null;
+	let previewDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function fetchPreview(variant: 'box' | 'message', backgroundBlob: Blob | null): Promise<string | null> {
+		const fd = new FormData();
+		fd.set('colorTheme', ogColorTheme);
+		fd.set('variant', variant);
+		if (backgroundBlob) fd.set('background', backgroundBlob, 'background.jpg');
+		const res = await fetch('/api/og/preview', { method: 'POST', body: fd });
+		if (!res.ok) return null;
+		return URL.createObjectURL(await res.blob());
+	}
+
+	async function refreshOgPreview() {
+		previewLoading = true;
+		try {
+			let backgroundBlob: Blob | null = pendingBackgroundBlob;
+			if (!backgroundBlob && !backgroundRemoved && data.backgroundImageUrl) {
+				if (cachedExistingBackgroundUrl !== data.backgroundImageUrl) {
+					const res = await fetch(data.backgroundImageUrl);
+					cachedExistingBackgroundBlob = res.ok ? await res.blob() : null;
+					cachedExistingBackgroundUrl = data.backgroundImageUrl;
+				}
+				backgroundBlob = cachedExistingBackgroundBlob;
+			}
+
+			const [boxUrl, messageUrl] = await Promise.all([
+				fetchPreview('box', backgroundBlob),
+				fetchPreview('message', backgroundBlob)
+			]);
+			if (previewBoxUrl) URL.revokeObjectURL(previewBoxUrl);
+			if (previewMessageUrl) URL.revokeObjectURL(previewMessageUrl);
+			previewBoxUrl = boxUrl;
+			previewMessageUrl = messageUrl;
+		} catch (e) {
+			console.error('Failed to refresh OGP preview', e);
+		} finally {
+			previewLoading = false;
+		}
+	}
+
+	function scheduleOgPreview() {
+		if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+		previewDebounceTimer = setTimeout(refreshOgPreview, 500);
+	}
+
+	$effect(() => {
+		// ogColorTheme / pendingBackgroundBlob / backgroundRemoved の変化に反応
+		void ogColorTheme;
+		void pendingBackgroundBlob;
+		void backgroundRemoved;
+		scheduleOgPreview();
+	});
+
+	function selectOgTheme(id: string) {
+		ogColorTheme = id;
+	}
+
+	function onBackgroundChange(blob: Blob) {
+		pendingBackgroundBlob = blob;
+		backgroundRemoved = false;
+		if (backgroundPreviewUrl && backgroundPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(backgroundPreviewUrl);
+		backgroundPreviewUrl = URL.createObjectURL(blob);
+	}
+
+	function onBackgroundRemove() {
+		pendingBackgroundBlob = null;
+		backgroundRemoved = true;
+		backgroundPreviewUrl = null;
+	}
+
+	const handleOgAppearanceSubmit: SubmitFunction = () => {
+		ogError = '';
+		ogSaving = true;
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				try {
+					let backgroundImageRef: unknown = undefined;
+					if (backgroundRemoved) {
+						backgroundImageRef = null;
+					} else if (pendingBackgroundBlob) {
+						const [{ createOAuthClient, uploadBackgroundImageToPds }, { Agent }] = await Promise.all([
+							import('$lib/client/oauthClient.js'),
+							import('@atproto/api')
+						]);
+						const client = await createOAuthClient(data.appUrl);
+						const session = await client.restore(data.user.did);
+						const agent = new Agent(session);
+						backgroundImageRef = await uploadBackgroundImageToPds(agent, pendingBackgroundBlob);
+					}
+					await syncConfigToPds({
+						colorTheme: ogColorTheme,
+						...(backgroundImageRef !== undefined ? { backgroundImage: backgroundImageRef } : {})
+					});
+					lastSavedOgColorTheme = ogColorTheme;
+					pendingBackgroundBlob = null;
+					backgroundRemoved = false;
+					ogSaved = true;
+				} catch (e) {
+					console.error('Failed to save OGP appearance', e);
+					ogColorTheme = lastSavedOgColorTheme;
+					ogError = $t('settings.ogp_save_error');
+				}
+			} else {
+				ogError = $t('settings.ogp_save_error');
+			}
+			ogSaving = false;
+		};
+	};
 
 	let showDeleteModal = $state(false);
 	let deleting = $state(false);
@@ -224,6 +352,61 @@
 			/>
 			<p class="text-xs text-slate-400 mt-1.5">{$t('settings.box_name_description')}</p>
 			<button type="submit" class="mt-4 text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
+				{$t('settings.save')}
+			</button>
+		</form>
+	</section>
+
+	<!-- OGP見た目(カラーテーマ・背景画像) -->
+	<section class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-4">
+		<h2 class="font-semibold text-slate-200 mb-3">{$t('settings.ogp_appearance')}</h2>
+		<p class="text-xs text-slate-400 mb-4">{$t('settings.ogp_appearance_description')}</p>
+
+		<form method="POST" action="?/saveOgAppearance" use:enhance={handleOgAppearanceSubmit}>
+			<div class="mb-5">
+				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_color_theme')}</p>
+				<OgThemePicker value={ogColorTheme} onSelect={selectOgTheme} lang={data.lang as 'ja' | 'en'} />
+			</div>
+
+			<div class="mb-5">
+				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_background')}</p>
+				<OgBackgroundUploader previewUrl={backgroundPreviewUrl} onChange={onBackgroundChange} onRemove={onBackgroundRemove} />
+			</div>
+
+			<div class="mb-5">
+				<p class="text-sm font-medium text-slate-300 mb-2">{$t('settings.ogp_preview')}</p>
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+						{#if previewBoxUrl}
+							<img src={previewBoxUrl} alt="" class="w-full h-full object-cover" />
+						{/if}
+						{#if previewLoading}
+							<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
+						{/if}
+					</div>
+					<div class="relative aspect-1200/630 bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+						{#if previewMessageUrl}
+							<img src={previewMessageUrl} alt="" class="w-full h-full object-cover" />
+						{/if}
+						{#if previewLoading}
+							<div class="absolute inset-0 flex items-center justify-center bg-black/30"><Spinner /></div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			{#if ogError}
+				<p class="mb-3 text-xs text-amber-400 bg-amber-950 rounded-lg px-3 py-2">{ogError}</p>
+			{/if}
+			{#if ogSaved && !ogError}
+				<p class="mb-3 text-xs text-green-400 bg-green-950 rounded-lg px-3 py-2">{$t('settings.saved')}</p>
+			{/if}
+			<button
+				type="submit"
+				disabled={ogSaving}
+				class="flex items-center gap-2 text-sm bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg transition-colors"
+			>
+				{#if ogSaving}<Spinner />{/if}
 				{$t('settings.save')}
 			</button>
 		</form>

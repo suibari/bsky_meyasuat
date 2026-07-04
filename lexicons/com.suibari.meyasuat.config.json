@@ -31,6 +31,17 @@
 					"createdAt": {
 						"type": "string",
 						"format": "datetime"
+					},
+					"colorTheme": {
+						"type": "string",
+						"maxLength": 40,
+						"description": "OGP appearance preset id (see src/lib/theme.ts OG_THEMES). Falls back to the default theme when absent or unrecognized."
+					},
+					"backgroundImage": {
+						"type": "blob",
+						"accept": ["image/jpeg", "image/png", "image/webp"],
+						"maxSize": 1000000,
+						"description": "Custom OGP background photo, pre-cropped client-side to 1200x630 (1.905:1) before upload."
 					}
 				}
 			}

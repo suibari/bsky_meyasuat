@@ -86,7 +86,8 @@ export const load: PageServerLoad = async ({ params, platform, locals }) => {
 			handle: creator.handle,
 			displayName: creator.displayName,
 			avatarUrl: creator.avatarUrl,
-			boxName: creator.boxName
+			boxName: creator.boxName,
+			ogVersion: creator.ogVersion
 		},
 		appUrl,
 		isOwner,

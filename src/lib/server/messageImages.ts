@@ -4,7 +4,11 @@ import { r2KeyToUrl } from '$lib/server/r2.js';
 
 type Env = App.Platform['env'];
 
-function extractCid(blob: unknown): string | null {
+export function buildBlobCdnUrl(did: string, cid: string): string {
+	return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@jpeg`;
+}
+
+export function extractCid(blob: unknown): string | null {
 	if (!blob || typeof blob !== 'object') return null;
 	const value = blob as { ref?: unknown; $link?: unknown };
 	if (typeof value.$link === 'string') return value.$link;
@@ -42,7 +46,7 @@ export function extractImageUrlsFromRecordValue(
 		const image = (item as { image?: unknown }).image;
 		const cid = extractCid(image);
 		if (!cid) continue;
-		urls.push(`https://cdn.bsky.app/img/feed_fullsize/plain/${repoDid}/${cid}@jpeg`);
+		urls.push(buildBlobCdnUrl(repoDid, cid));
 	}
 	return urls;
 }

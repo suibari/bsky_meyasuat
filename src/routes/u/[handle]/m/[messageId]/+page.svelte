@@ -11,7 +11,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const boxName = $derived(data.creator.boxName?.trim() || 'めやすばこ');
-	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}/m/${data.message.id}`);
+	const ogUrl = $derived(`${data.appUrl}/api/og/u/${data.creator.handle}/m/${data.message.id}?v=${data.creator.ogVersion}`);
 	const pageUrl = $derived(`${data.appUrl}/u/${data.creator.handle}/m/${data.message.id}`);
 	const ogDescription = $derived(
 		(data.message.answer ?? data.message.body).slice(0, 100)

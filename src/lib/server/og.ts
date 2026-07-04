@@ -1,5 +1,6 @@
 import satori, { init as initSatori } from 'satori/standalone';
 import { Resvg, initWasm as initResvg } from '@resvg/resvg-wasm';
+import { getOgTheme, hexToRgba, type OgTheme } from '../theme.js';
 
 let initialized = false;
 
@@ -107,7 +108,7 @@ export function buildAvatarNode(
 			};
 }
 
-export function buildQuestionNode(body: string, hasHeader = false) {
+export function buildQuestionNode(body: string, hasHeader = false, color = '#0f172a') {
 	const len = body.length;
 	const fontSize = hasHeader
 		? (len <= 30 ? 56 : len <= 60 ? 40 : len <= 100 ? 32 : 30)
@@ -119,7 +120,7 @@ export function buildQuestionNode(body: string, hasHeader = false) {
 				display: 'flex',
 				fontSize: `${fontSize}px`,
 				fontWeight: 400,
-				color: '#0f172a',
+				color,
 				lineHeight: 1.5,
 				maxWidth: '1000px',
 				textAlign: 'center',
@@ -139,9 +140,19 @@ export function buildLogoNode(
 		domainFontSize: number;
 		gap?: number;
 		innerGap?: number;
+		titleColor?: string;
+		domainColor?: string;
 	}
 ) {
-	const { iconSize, titleFontSize, domainFontSize, gap = 16, innerGap = 8 } = opts;
+	const {
+		iconSize,
+		titleFontSize,
+		domainFontSize,
+		gap = 16,
+		innerGap = 8,
+		titleColor = '#0ea5e9',
+		domainColor = '#94a3b8'
+	} = opts;
 	return {
 		type: 'div',
 		props: {
@@ -164,7 +175,7 @@ export function buildLogoNode(
 									style: {
 										fontSize: `${titleFontSize}px`,
 										fontWeight: 700,
-										color: '#0ea5e9',
+										color: titleColor,
 										fontFamily: '"KillGothic"'
 									},
 									children: 'めやすあっと'
@@ -175,7 +186,7 @@ export function buildLogoNode(
 								props: {
 									style: {
 										fontSize: `${domainFontSize}px`,
-										color: '#94a3b8',
+										color: domainColor,
 										fontFamily: '"KillGothic"'
 									},
 									children: 'meyasuat.suibari.com'
@@ -189,6 +200,84 @@ export function buildLogoNode(
 	};
 }
 
+function buildBackgroundLayer(opts: {
+	backgroundImageDataUri: string | null | undefined;
+	theme: OgTheme;
+	innerStyle: Record<string, unknown>;
+	children: unknown;
+}) {
+	const { backgroundImageDataUri, theme, innerStyle, children } = opts;
+	if (!backgroundImageDataUri) {
+		return { style: { background: theme.flat.background, ...innerStyle }, children };
+	}
+	const scrim = hexToRgba(theme.photo.overlayColor, theme.photo.overlayOpacity);
+	const gradient = hexToRgba(theme.photo.gradientColor, 0.85);
+	return {
+		style: {
+			display: 'flex',
+			flexDirection: 'column',
+			position: 'relative',
+			backgroundImage: `url(${backgroundImageDataUri})`,
+			backgroundSize: 'cover',
+			backgroundPosition: 'center'
+		},
+		children: [
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						position: 'absolute',
+						top: 0,
+						left: 0,
+						right: 0,
+						bottom: 0,
+						background: scrim,
+						zIndex: 1
+					}
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						position: 'absolute',
+						top: 0,
+						left: 0,
+						right: 0,
+						height: '220px',
+						backgroundImage: `linear-gradient(to bottom, ${gradient}, transparent)`,
+						zIndex: 2
+					}
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						position: 'absolute',
+						bottom: 0,
+						left: 0,
+						right: 0,
+						height: '220px',
+						backgroundImage: `linear-gradient(to top, ${gradient}, transparent)`,
+						zIndex: 3
+					}
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: { position: 'relative', zIndex: 4, width: '100%', height: '100%', ...innerStyle },
+					children
+				}
+			}
+		]
+	};
+}
+
 export function buildMessageOgSvgNode({
 	body,
 	sender,
@@ -196,7 +285,9 @@ export function buildMessageOgSvgNode({
 	boxName,
 	senderAvatarDataUri,
 	creatorAvatarDataUri,
-	icon
+	icon,
+	theme = getOgTheme(undefined),
+	backgroundImageDataUri = null
 }: {
 	body: string;
 	sender: { displayName: string | null; handle: string } | null;
@@ -205,21 +296,25 @@ export function buildMessageOgSvgNode({
 	senderAvatarDataUri: string | null;
 	creatorAvatarDataUri: string | null;
 	icon: string;
+	theme?: OgTheme;
+	backgroundImageDataUri?: string | null;
 }) {
+	const textSet = backgroundImageDataUri ? theme.photo : theme.flat;
 	const displayCreatorName = truncateText(creatorName, 18);
 	const displayBoxName = truncateText(boxName, 14);
 	const senderName = sender ? (sender.displayName ?? sender.handle) : null;
+	const senderAvatarColors = { background: textSet.avatarFallbackBgAlt, color: textSet.avatarFallbackFgAlt };
 	const headerNode = sender
 		? {
 				type: 'div',
 				props: {
 					style: { display: 'flex', alignItems: 'center', gap: '12px' },
 					children: [
-						buildAvatarNode(senderAvatarDataUri, senderName!, 48),
+						buildAvatarNode(senderAvatarDataUri, senderName!, 48, senderAvatarColors),
 						{
 							type: 'div',
 							props: {
-								style: { fontSize: '28px', color: '#475569', fontFamily: '"Noto Sans JP"' },
+								style: { fontSize: '28px', color: textSet.headerText, fontFamily: '"Noto Sans JP"' },
 								children: `${truncateText(senderName!, 12, '…')}さんからのメッセージ`
 							}
 						}
@@ -228,84 +323,89 @@ export function buildMessageOgSvgNode({
 			}
 		: null;
 
+	const bg = buildBackgroundLayer({
+		backgroundImageDataUri,
+		theme,
+		innerStyle: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '64px' },
+		children: [
+			headerNode,
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						flex: 1,
+						alignItems: 'center',
+						justifyContent: 'center',
+						overflow: 'hidden'
+					},
+					children: buildQuestionNode(body, !!sender, textSet.headline)
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						alignItems: 'flex-end',
+						justifyContent: 'space-between'
+					},
+					children: [
+						{
+							type: 'div',
+							props: {
+								style: {
+									display: 'flex',
+									alignItems: 'center',
+									gap: '16px',
+									width: '620px',
+									flexShrink: 1
+								},
+								children: [
+									buildAvatarNode(creatorAvatarDataUri, creatorName, 48, senderAvatarColors),
+									{
+										type: 'div',
+										props: {
+											style: {
+												fontSize: '24px',
+												color: textSet.muted,
+												fontFamily: '"KillGothic"',
+												flexShrink: 1,
+												whiteSpace: 'nowrap',
+												overflow: 'hidden',
+												textOverflow: 'ellipsis'
+											},
+											children: `${displayCreatorName} の ${displayBoxName}`
+										}
+									}
+								]
+							}
+						},
+						buildLogoNode(icon, {
+							iconSize: 52,
+							titleFontSize: 48,
+							domainFontSize: 14,
+							gap: 12,
+							innerGap: 4,
+							titleColor: textSet.logoTitle,
+							domainColor: textSet.logoDomain
+						})
+					]
+				}
+			}
+		].filter(Boolean)
+	});
+
 	return {
 		type: 'div',
 		props: {
 			style: {
 				width: '1200px',
 				height: '630px',
-				display: 'flex',
-				flexDirection: 'column',
-				justifyContent: 'space-between',
-				background: '#ffffff',
-				padding: '64px',
-				fontFamily: '"Noto Sans JP", sans-serif'
+				fontFamily: '"Noto Sans JP", sans-serif',
+				...bg.style
 			},
-			children: [
-				headerNode,
-				{
-					type: 'div',
-					props: {
-						style: {
-							display: 'flex',
-							flex: 1,
-							alignItems: 'center',
-							justifyContent: 'center',
-							overflow: 'hidden'
-						},
-						children: buildQuestionNode(body, !!sender)
-					}
-				},
-				{
-					type: 'div',
-					props: {
-						style: {
-							display: 'flex',
-							alignItems: 'flex-end',
-							justifyContent: 'space-between'
-						},
-						children: [
-							{
-								type: 'div',
-								props: {
-									style: {
-										display: 'flex',
-										alignItems: 'center',
-										gap: '16px',
-										width: '620px',
-										flexShrink: 1
-									},
-									children: [
-										buildAvatarNode(creatorAvatarDataUri, creatorName, 48),
-										{
-											type: 'div',
-											props: {
-												style: {
-													fontSize: '24px',
-													color: '#64748b',
-													fontFamily: '"KillGothic"',
-													flexShrink: 1,
-													whiteSpace: 'nowrap',
-													overflow: 'hidden',
-													textOverflow: 'ellipsis'
-												},
-												children: `${displayCreatorName} の ${displayBoxName}`
-											}
-										}
-									]
-								}
-							},
-							buildLogoNode(icon, {
-								iconSize: 52,
-								titleFontSize: 48,
-								domainFontSize: 14,
-								gap: 12,
-								innerGap: 4
-							})
-						]
-					}
-				}
-			].filter(Boolean)
+			children: bg.children
 		}
 	};
 }
@@ -315,14 +415,19 @@ export function buildUserOgSvgNode({
 	handle,
 	boxName,
 	avatarDataUri,
-	icon
+	icon,
+	theme = getOgTheme(undefined),
+	backgroundImageDataUri = null
 }: {
 	name: string;
 	handle: string;
 	boxName: string;
 	avatarDataUri: string | null;
 	icon: string;
+	theme?: OgTheme;
+	backgroundImageDataUri?: string | null;
 }) {
+	const textSet = backgroundImageDataUri ? theme.photo : theme.flat;
 	const displayName = truncateText(name, 16);
 	const displayHandle = truncateText(handle, 30);
 	const displayBoxName = truncateText(boxName, 14);
@@ -336,7 +441,119 @@ export function buildUserOgSvgNode({
 					style: { borderRadius: '50%', objectFit: 'cover' }
 				}
 			}
-		: buildAvatarNode(null, name, 140, { background: '#e0f2fe', color: '#0284c7' }, 56);
+		: buildAvatarNode(
+				null,
+				name,
+				140,
+				{ background: textSet.avatarFallbackBg, color: textSet.avatarFallbackFg },
+				56
+			);
+
+	const bg = buildBackgroundLayer({
+		backgroundImageDataUri,
+		theme,
+		innerStyle: { display: 'flex', flexDirection: 'column', padding: '64px' },
+		children: [
+			{
+				type: 'div',
+				props: {
+					style: {
+						fontSize: '52px',
+						fontWeight: 700,
+						color: textSet.heading,
+						fontFamily: '"KillGothic"',
+						maxWidth: '1072px',
+						whiteSpace: 'nowrap',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis'
+					},
+					children: `${displayName} の ${displayBoxName}`
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						flexGrow: 1,
+						alignItems: 'center',
+						justifyContent: 'center',
+						fontSize: '80px',
+						fontWeight: 400,
+						color: textSet.headline
+					},
+					children: 'メッセージを募集中'
+				}
+			},
+			{
+				type: 'div',
+				props: {
+					style: {
+						display: 'flex',
+						alignItems: 'flex-end',
+						justifyContent: 'space-between',
+						width: '100%'
+					},
+					children: [
+						{
+							type: 'div',
+							props: {
+								style: {
+									display: 'flex',
+									alignItems: 'center',
+									gap: '24px',
+									width: '620px',
+									flexShrink: 1
+								},
+								children: [
+									avatarNode,
+									{
+										type: 'div',
+										props: {
+											style: { display: 'flex', flexDirection: 'column', flexShrink: 1 },
+											children: [
+												{
+													type: 'div',
+													props: {
+														style: {
+															fontSize: '40px',
+															fontWeight: 700,
+															color: textSet.headline,
+															flexShrink: 1
+														},
+														children: displayName
+													}
+												},
+												{
+													type: 'div',
+													props: {
+														style: {
+															fontSize: '24px',
+															color: textSet.muted,
+															marginTop: '8px',
+															flexShrink: 1
+														},
+														children: `@${displayHandle}`
+													}
+												}
+											]
+										}
+									}
+								]
+							}
+						},
+						buildLogoNode(icon, {
+							iconSize: 72,
+							titleFontSize: 64,
+							domainFontSize: 18,
+							titleColor: textSet.logoTitle,
+							domainColor: textSet.logoDomain
+						})
+					]
+				}
+			}
+		]
+	});
 
 	return {
 		type: 'div',
@@ -344,106 +561,10 @@ export function buildUserOgSvgNode({
 			style: {
 				width: '1200px',
 				height: '630px',
-				display: 'flex',
-				flexDirection: 'column',
-				background: '#ffffff',
-				padding: '64px',
-				fontFamily: '"Noto Sans JP", sans-serif'
+				fontFamily: '"Noto Sans JP", sans-serif',
+				...bg.style
 			},
-			children: [
-				{
-					type: 'div',
-					props: {
-						style: {
-							fontSize: '52px',
-							fontWeight: 700,
-							color: '#0369a1',
-							fontFamily: '"KillGothic"',
-							maxWidth: '1072px',
-							whiteSpace: 'nowrap',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis'
-						},
-						children: `${displayName} の ${displayBoxName}`
-					}
-				},
-				{
-					type: 'div',
-					props: {
-						style: {
-							display: 'flex',
-							flexGrow: 1,
-							alignItems: 'center',
-							justifyContent: 'center',
-							fontSize: '80px',
-							fontWeight: 400,
-							color: '#0f172a'
-						},
-						children: 'メッセージを募集中'
-					}
-				},
-				{
-					type: 'div',
-					props: {
-						style: {
-							display: 'flex',
-							alignItems: 'flex-end',
-							justifyContent: 'space-between',
-							width: '100%'
-						},
-						children: [
-							{
-								type: 'div',
-								props: {
-									style: {
-										display: 'flex',
-										alignItems: 'center',
-										gap: '24px',
-										width: '620px',
-										flexShrink: 1
-									},
-									children: [
-										avatarNode,
-										{
-											type: 'div',
-											props: {
-												style: { display: 'flex', flexDirection: 'column', flexShrink: 1 },
-												children: [
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '40px',
-																fontWeight: 700,
-																color: '#0f172a',
-																flexShrink: 1
-															},
-															children: displayName
-														}
-													},
-													{
-														type: 'div',
-														props: {
-															style: {
-																fontSize: '24px',
-																color: '#64748b',
-																marginTop: '8px',
-																flexShrink: 1
-															},
-															children: `@${displayHandle}`
-														}
-													}
-												]
-											}
-										}
-									]
-								}
-							},
-							buildLogoNode(icon, { iconSize: 72, titleFontSize: 64, domainFontSize: 18 })
-						]
-					}
-				}
-			]
+			children: bg.children
 		}
 	};
 }
