@@ -1,0 +1,22 @@
+# Playwright E2E 専用の platformProxy 設定(vite.config.ts が E2E_WRANGLER_CONFIG で読み替える)。
+# 本番/開発用の .dev.vars を読まないよう、wrangler.toml とは別ディレクトリに置いている。
+name = "bsky-meyasuat-e2e"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "../../.svelte-kit/cloudflare"
+
+[vars]
+PUBLIC_APP_URL = "http://127.0.0.1:4174"
+POSTGREST_URL = "http://127.0.0.1:54330"
+CF_ACCESS_CLIENT_ID = "e2e"
+CF_ACCESS_CLIENT_SECRET = "e2e"
+SESSION_SECRET = "e2e-session-secret"
+BOT_HANDLE = "meyasuat-bot.bsky.social"
+BOT_APP_PASSWORD = ""
+TURNSTILE_SECRET_KEY = ""
+PUBLIC_TURNSTILE_SITE_KEY = ""
+OPENAI_API_KEY = ""
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "meyasuat-images-e2e"

@@ -11,10 +11,11 @@ export default defineConfig({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter({
+				// E2E(Playwright)ではモックPostgREST等を向いた専用設定に差し替える(tests/e2e/wrangler.e2e.toml)
 				platformProxy: {
-					configPath: 'wrangler.toml',
+					configPath: process.env.E2E_WRANGLER_CONFIG ?? 'wrangler.toml',
 					environment: undefined,
-					persist: { path: '.wrangler/state/v3' }
+					persist: { path: process.env.E2E_WRANGLER_CONFIG ? '.wrangler/e2e-state' : '.wrangler/state/v3' }
 				}
 			})
 		})
