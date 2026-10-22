@@ -51,3 +51,39 @@ export async function getTotalR2Bytes(
 
 	return total;
 }
+
+// ブラウザで事前生成したOGP画像の保存先。ogVersion(テーマ/背景の組み合わせ)ごとに分け、
+// 設定変更で ogVersion が変われば別キーになる(古いものは box 保存時に掃除する)。
+// 名前・アイコン・本文など ogVersion に含まれない内容の変化は specHash で区別し、古い画像を配信しないようにする。
+// ogVersion にはPDSレコード由来の文字列(colorTheme)が含まれるため、各要素はエンコードする。
+export function ogImagePrefix(did: string): string {
+	return `og/${encodeURIComponent(did)}/`;
+}
+
+export function ogImageVersionPrefix(did: string, ogVersion: string): string {
+	return `${ogImagePrefix(did)}${encodeURIComponent(ogVersion)}/`;
+}
+
+export function ogImageKeyPrefix(did: string, ogVersion: string, messageId?: string): string {
+	const base = ogImageVersionPrefix(did, ogVersion);
+	// 区切りの @ は encodeURIComponent が必ずエンコードする文字なので、IDの前方一致で他のメッセージを巻き込まない
+	return messageId ? `${base}m/${encodeURIComponent(messageId)}@` : `${base}box@`;
+}
+
+export function ogImageKey(did: string, ogVersion: string, specHash: string, messageId?: string): string {
+	return `${ogImageKeyPrefix(did, ogVersion, messageId)}${specHash}.png`;
+}
+
+export async function deleteR2Prefix(
+	env: App.Platform['env'],
+	prefix: string,
+	keep: (key: string) => boolean = () => false
+): Promise<void> {
+	let cursor: string | undefined;
+	do {
+		const list = await env.R2.list({ prefix, cursor });
+		const keys = list.objects.map((o) => o.key).filter((key) => !keep(key));
+		if (keys.length > 0) await env.R2.delete(keys);
+		cursor = list.truncated ? list.cursor : undefined;
+	} while (cursor);
+}

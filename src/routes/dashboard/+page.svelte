@@ -552,6 +552,7 @@
 {#if sharingMessageId}
 	<ShareModal
 		ogImageUrl={ogImageUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId, data.user?.ogVersion)}
+		messageId={sharingMessageId}
 		shareUrl={pageShareUrl(data.appUrl, data.user?.handle ?? '', sharingMessageId)}
 		did={data.user?.did ?? ''}
 		handle={data.user?.handle ?? ''}

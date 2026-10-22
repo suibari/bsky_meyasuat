@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 const PORT = Number(process.env.MOCK_POSTGREST_PORT ?? 54330);
 const SESSION_ID = 'e2e-session';
 const USER = {
-	did: 'did:plc:e2emeyasuattestuser',
+	did: 'did:plc:e2emeyasuattestuser00000',
 	handle: 'e2e-user.test',
 	display_name: 'E2Eテストユーザー',
 	avatar_url: null,
@@ -42,6 +42,23 @@ createServer((req, res) => {
 	if (req.method === 'GET' && table === 'users') {
 		const hit = q.get('did') === `eq.${USER.did}` || q.get('handle') === `eq.${USER.handle}`;
 		return json(res, 200, hit ? [USER] : []);
+	}
+	// e2e-message で始まるIDのメッセージは、テストユーザー宛ての匿名(R2画像なし)メッセージとして返す。
+	// IDを毎回変えればR2に保存済みのOGP画像が無い状態から試せる。
+	if (req.method === 'GET' && table === 'messages') {
+		const id = q.get('id')?.replace(/^eq\./, '');
+		return json(res, 200, id?.startsWith('e2e-message')
+			? [{
+				id,
+				creator_did: USER.did,
+				body: 'E2Eテスト用の質問です',
+				image_keys: [],
+				is_read: false,
+				created_at: '2026-01-01T00:00:00.000Z',
+				question_record_uri: null,
+				answer_record_uri: null
+			}]
+			: []);
 	}
 	if (req.method === 'GET' && table === 'rate_limit_log') {
 		return json(res, 200, [], { 'Content-Range': '*/0' });

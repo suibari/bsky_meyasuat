@@ -5,7 +5,7 @@ export const E2E_PORT = 4174;
 export const MOCK_POSTGREST_PORT = 54330;
 export const SESSION_SECRET = 'e2e-session-secret';
 export const SESSION_ID = 'e2e-session';
-export const USER_DID = 'did:plc:e2emeyasuattestuser';
+export const USER_DID = 'did:plc:e2emeyasuattestuser00000';
 export const USER_HANDLE = 'e2e-user.test';
 
 // src/lib/server/session.ts の makeCookieValue と同じ形式(sessionId.HMAC-SHA256のbase64url)

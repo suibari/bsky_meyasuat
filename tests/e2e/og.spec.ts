@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { E2E_PORT, USER_HANDLE, sessionCookieValue } from './fixtures';
 
@@ -6,35 +7,8 @@ function pngSize(body: Uint8Array): { width: number; height: number } {
 	return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
-type PreviewCall = { variant: string | null; hasBackground: boolean; status: number; type: string | null };
-
-// 背景画像(Blob)を含む multipart は Playwright から本文を読めず、レスポンス本文も fetch→blob で
-// 消費されて読めないため、ページ側で fetch を包んで /api/og/preview の呼び出し内容と結果を記録する。
-async function recordPreviewCalls(page: Page) {
-	await page.addInitScript(() => {
-		const calls: unknown[] = [];
-		(window as unknown as { __previewCalls: unknown[] }).__previewCalls = calls;
-		const original = window.fetch.bind(window);
-		window.fetch = async (input, init) => {
-			const res = await original(input, init);
-			const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-			if (url.endsWith('/api/og/preview') && init?.body instanceof FormData) {
-				calls.push({
-					variant: init.body.get('variant'),
-					hasBackground: init.body.get('background') instanceof Blob,
-					status: res.status,
-					type: res.headers.get('content-type')
-				});
-			}
-			return res;
-		};
-	});
-	return () => page.evaluate(() => (window as unknown as { __previewCalls: PreviewCall[] }).__previewCalls);
-}
-
-// box/message は並列に送るので完了順は不定。variant順に並べて比較する。
-function byVariant(calls: PreviewCall[]): PreviewCall[] {
-	return [...calls].sort((a, b) => String(a.variant).localeCompare(String(b.variant)));
+function sha256(bytes: Uint8Array): string {
+	return createHash('sha256').update(bytes).digest('hex');
 }
 
 async function login(page: Page) {
@@ -43,54 +17,134 @@ async function login(page: Page) {
 	]);
 }
 
-test.describe('OGP設定プレビュー', () => {
-	test('box/message を1枚ずつ別リクエストで生成し、背景変更後も同様に表示される', async ({ page }) => {
+// /api/og/u/... はURL単位でエッジキャッシュされるので、テストごとに別の ?v= を使う
+function uniqueVersion(): string {
+	return `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// ブラウザで publishOgImage(描画→R2へPUT)を実行し、生成した画像のハッシュを返す
+async function publishInBrowser(page: Page, messageId?: string): Promise<{ hash: string; size: number }> {
+	return page.evaluate(
+		async ({ handle, messageId }) => {
+			// Vite dev サーバーが配信するソースを直接読み込んで、ブラウザ上で実行する
+			const modulePath = '/src/lib/client/og.ts';
+			const mod: typeof import('../../src/lib/client/og') = await import(/* @vite-ignore */ modulePath);
+			const blob = await mod.publishOgImage(handle, messageId);
+			const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+			const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+			return { hash, size: blob.size };
+		},
+		{ handle: USER_HANDLE, messageId }
+	);
+}
+
+test.describe('OGP設定プレビュー(ブラウザ描画)', () => {
+	test('サーバーに描画させずにbox/messageを表示し、背景を選ぶと描き直す', async ({ page }) => {
 		await login(page);
-		const previewCalls = await recordPreviewCalls(page);
+		const ogRequests: string[] = [];
+		page.on('request', (req) => {
+			const { pathname } = new URL(req.url());
+			if (pathname.startsWith('/api/og/')) ogRequests.push(`${req.method()} ${pathname}`);
+		});
 		await page.goto('/dashboard/settings');
 
 		const previews = page.locator('img[src^="blob:"]');
 		const naturalWidths = () => previews.evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).naturalWidth));
 		await expect.poll(naturalWidths).toEqual([1200, 1200]);
-		expect(byVariant(await previewCalls())).toEqual([
-			{ variant: 'box', hasBackground: false, status: 200, type: 'image/png' },
-			{ variant: 'message', hasBackground: false, status: 200, type: 'image/png' }
-		]);
+		const before = await previews.evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src));
 
-		// 背景画像を選んでクロップを確定すると、背景付きで再び box/message が別々に生成される
 		await page.locator('input[type="file"]').setInputFiles('static/ogp.png');
 		await page.getByRole('button', { name: 'この範囲で決定' }).click();
-		await expect.poll(async () => (await previewCalls()).length).toBe(4);
-		expect(byVariant((await previewCalls()).slice(2))).toEqual([
-			{ variant: 'box', hasBackground: true, status: 200, type: 'image/png' },
-			{ variant: 'message', hasBackground: true, status: 200, type: 'image/png' }
-		]);
-		// アップローダーのプレビュー(1200x630にクロップ済みの背景)＋OGPプレビュー2枚
+		// アップローダーのプレビュー(1200x630にクロップ済みの背景)＋描き直されたOGPプレビュー2枚
+		const ogPreviewSrcs = async () =>
+			(await previews.evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src))).slice(1);
+		await expect.poll(async () => (await ogPreviewSrcs()).some((src) => before.includes(src))).toBe(false);
 		await expect.poll(naturalWidths).toEqual([1200, 1200, 1200]);
-	});
 
-	test('variant=both は廃止され、1枚(PNG)だけ返す', async ({ page }) => {
-		await login(page);
-		await page.goto('/dashboard/settings');
-		const result = await page.evaluate(async () => {
-			const fd = new FormData();
-			fd.set('variant', 'both');
-			const res = await fetch('/api/og/preview', { method: 'POST', body: fd });
-			return { status: res.status, type: res.headers.get('content-type') };
-		});
-		expect(result).toEqual({ status: 200, type: 'image/png' });
+		// 描画はブラウザで完結し、OGP関連のAPI(旧 /api/og/preview を含む)は一切呼ばれない
+		expect(ogRequests).toEqual([]);
 	});
 });
 
-test.describe('OGP画像エンドポイント', () => {
-	test('/api/og/u/[handle] が1200x630のPNGを返す', async ({ request }) => {
-		for (let i = 0; i < 2; i++) {
-			const res = await request.get(`/api/og/u/${USER_HANDLE}?v=e2e`);
-			expect(res.status()).toBe(200);
-			expect(res.headers()['content-type']).toBe('image/png');
-			expect(res.headers()['cache-control']).toContain('max-age=86400');
-			expect(pngSize(await res.body())).toEqual({ width: 1200, height: 630 });
-		}
+test.describe('OGP画像の事前生成とR2配信', () => {
+	test('箱: ブラウザで生成してPUTした画像がそのまま配信される', async ({ page }) => {
+		await login(page);
+		await page.goto('/dashboard/settings');
+		const published = await publishInBrowser(page);
+
+		const res = await page.request.get(`/api/og/u/${USER_HANDLE}?v=${uniqueVersion()}`);
+		expect(res.status()).toBe(200);
+		expect(res.headers()['content-type']).toBe('image/png');
+		expect(res.headers()['cache-control']).toContain('max-age=86400');
+		const body = await res.body();
+		expect(pngSize(body)).toEqual({ width: 1200, height: 630 });
+		expect(sha256(body)).toBe(published.hash);
+	});
+
+	test('メッセージ: 未生成ならサーバーで描画し、生成後はPUTした画像を配信する', async ({ page }) => {
+		await login(page);
+		await page.goto('/dashboard/settings');
+		const messageId = `e2e-message-${uniqueVersion()}`;
+
+		const fallback = await page.request.get(`/api/og/u/${USER_HANDLE}/m/${messageId}?v=${uniqueVersion()}`);
+		expect(fallback.status()).toBe(200);
+		expect(pngSize(await fallback.body())).toEqual({ width: 1200, height: 630 });
+
+		const published = await publishInBrowser(page, messageId);
+		const res = await page.request.get(`/api/og/u/${USER_HANDLE}/m/${messageId}?v=${uniqueVersion()}`);
+		expect(res.status()).toBe(200);
+		expect(sha256(await res.body())).toBe(published.hash);
+	});
+
+	test('PUTは本人のログインと1200x630のPNGを要求する', async ({ page, request }) => {
+		const pngHeader = (width: number, height: number) => {
+			const buf = new Uint8Array(33);
+			buf.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+			new DataView(buf.buffer).setUint32(16, width);
+			new DataView(buf.buffer).setUint32(20, height);
+			return Buffer.from(buf);
+		};
+
+		const anonymous = await request.put(`/api/og/u/${USER_HANDLE}`, { data: pngHeader(1200, 630) });
+		expect(anonymous.status()).toBe(401);
+
+		await login(page);
+		const notPng = await page.request.put(`/api/og/u/${USER_HANDLE}`, { data: Buffer.from('not a png') });
+		expect(notPng.status()).toBe(400);
+		const wrongSize = await page.request.put(`/api/og/u/${USER_HANDLE}`, { data: pngHeader(100, 100) });
+		expect(wrongSize.status()).toBe(400);
+	});
+
+	test('描画用のspecと画像プロキシはログイン必須で、プロキシはBluesky CDNに限る', async ({ page, request }) => {
+		expect((await request.get(`/api/og/spec/u/${USER_HANDLE}`)).status()).toBe(401);
+		expect((await request.get(`/api/og/image-proxy?url=${encodeURIComponent('https://cdn.bsky.app/img/x')}`)).status()).toBe(401);
+
+		await login(page);
+		const spec = await page.request.get(`/api/og/spec/u/${USER_HANDLE}`);
+		expect(spec.status()).toBe(200);
+		expect(await spec.json()).toMatchObject({ kind: 'box', handle: USER_HANDLE, backgroundUrl: null });
+		const outside = await page.request.get(`/api/og/image-proxy?url=${encodeURIComponent('https://example.com/a.png')}`);
+		expect(outside.status()).toBe(400);
+	});
+});
+
+test.describe('シェアモーダル', () => {
+	test('開くとOGP画像をブラウザで生成・保存して表示する', async ({ page }) => {
+		await login(page);
+		await page.goto('/dashboard');
+		const put = page.waitForResponse(
+			(res) => res.request().method() === 'PUT' && new URL(res.url()).pathname === `/api/og/u/${USER_HANDLE}`
+		);
+		// SSR直後はハイドレーション前でクリックが効かないことがあるので、ダイアログが開くまで押し直す
+		await expect(async () => {
+			await page.getByRole('button', { name: 'シェア', exact: true }).click();
+			await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1000 });
+		}).toPass();
+		expect((await put).status()).toBe(204);
+
+		const modalImage = page.getByRole('img', { name: 'OGP' });
+		await expect(modalImage).toHaveAttribute('src', /^blob:/);
+		await expect.poll(() => modalImage.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(1200);
 	});
 });
 

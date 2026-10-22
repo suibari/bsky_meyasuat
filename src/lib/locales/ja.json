@@ -123,7 +123,6 @@
 	"settings.ogp_background_crop_cancel": "キャンセル",
 	"settings.ogp_preview": "プレビュー",
 	"settings.ogp_preview_error": "プレビューを更新できませんでした。少し時間をおいてもう一度お試しください。",
-	"settings.ogp_preview_rate_limited": "プレビューの更新が混み合っています。少し待ってからもう一度お試しください。",
 	"settings.ogp_save_error": "OGP設定の保存に失敗しました。時間をおいて再度お試しください。",
 	"settings.language": "言語",
 	"settings.theme": "テーマ",

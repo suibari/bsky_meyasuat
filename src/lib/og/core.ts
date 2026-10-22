@@ -1,28 +1,10 @@
+// OGP画像の生成ロジック(サーバー・ブラウザ共通)。WASMの初期化だけは実行環境ごとに異なるため、
+// サーバーは $lib/server/og.ts、ブラウザは $lib/client/og.ts の ensureInit を先に呼ぶこと。
 import satori, { init as initSatori } from 'satori/standalone';
 import { Resvg, initWasm as initResvg } from '@resvg/resvg-wasm';
 import { getOgTheme, type OgTheme } from '../theme.js';
 
-let initialized = false;
-
-// 本番(Cloudflare)では _worker.js に注入された事前コンパイル済みの
-// WebAssembly.Module を globalThis 経由で受け取る。dev(Node)では
-// node:fs から bytes を読んで初期化する(本番ビルドでは import.meta.env.DEV が
-// false に置換され、この分岐ごと dead-code 除去される)。
-export async function ensureInit(): Promise<void> {
-	if (initialized) return;
-	let resvgInput: any = (globalThis as any).__OG_RESVG_WASM;
-	let yogaInput: any = (globalThis as any).__OG_YOGA_WASM;
-	if (import.meta.env.DEV) {
-		const { readFile } = await import('node:fs/promises');
-		const { createRequire } = await import('node:module');
-		const req = createRequire(import.meta.url);
-		resvgInput = await readFile(req.resolve('@resvg/resvg-wasm/index_bg.wasm'));
-		yogaInput = await readFile(req.resolve('satori/yoga.wasm'));
-	}
-	await initResvg(resvgInput);
-	await initSatori(yogaInput);
-	initialized = true;
-}
+export { initSatori, initResvg };
 
 let fontCache: { noto: ArrayBuffer; kill: ArrayBuffer } | null = null;
 
@@ -580,6 +562,82 @@ export async function renderOgPng(
 	});
 	const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } });
 	return resvg.render().asPng();
+}
+
+// OGP画像1枚分の入力。サーバー(/api/og/spec/...)が解決してブラウザへ渡し、ブラウザ側で描画する。
+// 画像はURLで持ち、描画時に resolveImage でdata URIへ変換する(サーバーは直接、ブラウザはプロキシ経由)。
+export type OgSpec =
+	| {
+			kind: 'box';
+			name: string;
+			handle: string;
+			boxName: string;
+			avatarUrl: string | null;
+			colorTheme: string | null;
+			backgroundUrl: string | null;
+	  }
+	| {
+			kind: 'message';
+			body: string;
+			sender: { displayName: string | null; handle: string; avatarUrl: string | null } | null;
+			creatorName: string;
+			boxName: string;
+			creatorAvatarUrl: string | null;
+			colorTheme: string | null;
+			backgroundUrl: string | null;
+	  };
+
+export async function renderOgSpec(
+	spec: OgSpec,
+	opts: {
+		fonts: { noto: ArrayBuffer; kill: ArrayBuffer };
+		appUrl: string;
+		resolveImage: (url: string) => Promise<string | null>;
+	}
+): Promise<Uint8Array> {
+	const { fonts, appUrl, resolveImage } = opts;
+	const theme = getOgTheme(spec.colorTheme);
+	const image = (url: string | null) => (url ? resolveImage(url) : Promise.resolve<string | null>(null));
+	const icon = await loadIcon(appUrl, theme.flat.logoTitle);
+
+	if (spec.kind === 'box') {
+		const [avatarDataUri, backgroundImageDataUri] = await Promise.all([
+			image(spec.avatarUrl),
+			image(spec.backgroundUrl)
+		]);
+		return renderOgPng(
+			buildUserOgSvgNode({
+				name: spec.name,
+				handle: spec.handle,
+				boxName: spec.boxName,
+				avatarDataUri,
+				icon,
+				theme,
+				backgroundImageDataUri
+			}),
+			fonts
+		);
+	}
+
+	const [senderAvatarDataUri, creatorAvatarDataUri, backgroundImageDataUri] = await Promise.all([
+		image(spec.sender?.avatarUrl ?? null),
+		image(spec.creatorAvatarUrl),
+		image(spec.backgroundUrl)
+	]);
+	return renderOgPng(
+		buildMessageOgSvgNode({
+			body: spec.body,
+			sender: spec.sender,
+			creatorName: spec.creatorName,
+			boxName: spec.boxName,
+			senderAvatarDataUri,
+			creatorAvatarDataUri,
+			icon,
+			theme,
+			backgroundImageDataUri
+		}),
+		fonts
+	);
 }
 
 export { satori, Resvg };

@@ -96,7 +96,8 @@ export async function uploadBackgroundImageToPds(agent: Agent, blob: Blob): Prom
 
 export type ShareEmbedInput = {
 	url: string;
-	imageUrl: string;
+	// OGP画像。ブラウザで生成済みのBlobを渡す(サーバー経由で取り直すとCPU上限を超えうるため)
+	image: Blob;
 	title: string;
 	description: string;
 };
@@ -137,9 +138,7 @@ export async function postShareToBluesky(
 ): Promise<ShareEmbedResult> {
 	const agent = await restoreAgent(appUrl, did);
 
-	const res = await fetch(embed.imageUrl);
-	if (!res.ok) throw new Error('Failed to fetch OGP image');
-	const blob = await fitExternalThumbBlob(await res.blob());
+	const blob = await fitExternalThumbBlob(embed.image);
 	const up = await agent.uploadBlob(blob, { encoding: blob.type || 'image/png' });
 
 	const created = await agent.post({

@@ -11,6 +11,7 @@
 	import OgBackgroundUploader from '$lib/components/OgBackgroundUploader.svelte';
 	import { deleteAllRecordsInCollection } from '$lib/client/oauthClient.js';
 	import { DEFAULT_OG_THEME_ID } from '$lib/theme.js';
+	import type { OgSpec } from '$lib/og/core.js';
 
 	let { data }: { data: PageData } = $props();
 
@@ -83,56 +84,41 @@
 	let previewMessageUrl = $state<string | null>(null);
 	let previewLoading = $state(false);
 	let previewError = $state('');
-	let cachedExistingBackgroundBlob: Blob | null = null;
-	let cachedExistingBackgroundUrl: string | null = null;
 	let previewDebounceTimer: ReturnType<typeof setTimeout> | undefined;
-	let previewAbortController: AbortController | null = null;
 	let previewRequestSeq = 0;
-	let previewBackgroundVersion = $state(0);
+	// 値はobject URL。テーマ/背景を行き来したときに使い回すので revoke しない。
 	const previewCache = new Map<string, { box: string; message: string }>();
 
-	function previewCacheKey() {
-		const backgroundKey = backgroundRemoved
-			? 'removed'
-			: pendingBackgroundBlob
-				? `pending:${previewBackgroundVersion}`
-				: cachedExistingBackgroundBlob
-					? `existing:${cachedExistingBackgroundUrl ?? 'cached'}`
-					: data.backgroundImageUrl
-						? `existing:${data.backgroundImageUrl}`
-					: 'none';
-		return `${ogColorTheme}:${backgroundKey}`;
-	}
-
-	// サーバー側は1リクエスト1枚しか生成しない(WorkersのCPU上限対策)ため、box/message を並列に取得する。
-	// 返すobject URLは previewCache に保持して使い回すので revoke しない。
-	async function fetchPreviewVariant(variant: 'box' | 'message', backgroundBlob: Blob | null, signal: AbortSignal): Promise<string> {
-		const fd = new FormData();
-		fd.set('colorTheme', ogColorTheme);
-		fd.set('variant', variant);
-		if (backgroundBlob) fd.set('background', backgroundBlob, 'background.jpg');
-		const res = await fetch('/api/og/preview', { method: 'POST', body: fd, signal });
-		if (!res.ok) {
-			const err = new Error(`Preview request failed: ${res.status}`);
-			(err as Error & { status?: number }).status = res.status;
-			throw err;
-		}
-		return URL.createObjectURL(await res.blob());
-	}
-
-	async function fetchPreview(backgroundBlob: Blob | null, signal: AbortSignal): Promise<{ box: string; message: string }> {
-		const [box, message] = await Promise.all([
-			fetchPreviewVariant('box', backgroundBlob, signal),
-			fetchPreviewVariant('message', backgroundBlob, signal)
-		]);
-		return { box, message };
+	// プレビューはブラウザで描画する(サーバーで描画するとWorkersのCPU上限を超えるため)。
+	// 名前・箱名は保存済みの値で描画する(従来のサーバー側プレビューと同じ)。
+	function previewSpecs(): { box: OgSpec; message: OgSpec } {
+		const name = data.user.displayName?.trim() || data.user.handle;
+		const savedBoxName = data.user.boxName?.trim() || 'めやすばこ';
+		return {
+			box: {
+				kind: 'box',
+				name,
+				handle: data.user.handle,
+				boxName: savedBoxName,
+				avatarUrl: data.user.avatarUrl,
+				colorTheme: ogColorTheme,
+				backgroundUrl: backgroundPreviewUrl
+			},
+			message: {
+				kind: 'message',
+				body: 'これはプレビュー用のサンプル質問文です。',
+				sender: null,
+				creatorName: name,
+				boxName: savedBoxName,
+				creatorAvatarUrl: null,
+				colorTheme: ogColorTheme,
+				backgroundUrl: backgroundPreviewUrl
+			}
+		};
 	}
 
 	async function refreshOgPreview() {
-		const key = previewCacheKey();
-		previewAbortController?.abort();
-		const controller = new AbortController();
-		previewAbortController = controller;
+		const key = `${ogColorTheme}:${backgroundPreviewUrl ?? 'none'}`;
 		const requestSeq = ++previewRequestSeq;
 
 		const cached = previewCache.get(key);
@@ -147,28 +133,18 @@
 		previewLoading = true;
 		previewError = '';
 		try {
-			let backgroundBlob: Blob | null = pendingBackgroundBlob;
-			if (!backgroundBlob && !backgroundRemoved) {
-				if (cachedExistingBackgroundBlob) {
-					backgroundBlob = cachedExistingBackgroundBlob;
-				} else if (data.backgroundImageUrl && cachedExistingBackgroundUrl !== data.backgroundImageUrl) {
-					const res = await fetch(data.backgroundImageUrl);
-					cachedExistingBackgroundBlob = res.ok ? await res.blob() : null;
-					cachedExistingBackgroundUrl = data.backgroundImageUrl;
-					backgroundBlob = cachedExistingBackgroundBlob;
-				}
-			}
-
-			const preview = await fetchPreview(backgroundBlob, controller.signal);
-			if (requestSeq !== previewRequestSeq) return;
+			const { renderOgBlob } = await import('$lib/client/og.js');
+			const specs = previewSpecs();
+			const box = URL.createObjectURL(await renderOgBlob(specs.box));
+			const message = URL.createObjectURL(await renderOgBlob(specs.message));
+			const preview = { box, message };
 			previewCache.set(key, preview);
+			if (requestSeq !== previewRequestSeq) return;
 			previewBoxUrl = preview.box;
 			previewMessageUrl = preview.message;
 		} catch (e) {
-			if (e instanceof DOMException && e.name === 'AbortError') return;
 			console.error('Failed to refresh OGP preview', e);
-			const status = (e as Error & { status?: number }).status;
-			previewError = status === 429 ? $t('settings.ogp_preview_rate_limited') : $t('settings.ogp_preview_error');
+			if (requestSeq === previewRequestSeq) previewError = $t('settings.ogp_preview_error');
 		} finally {
 			if (requestSeq === previewRequestSeq) previewLoading = false;
 		}
@@ -180,11 +156,9 @@
 	}
 
 	$effect(() => {
-		// ogColorTheme / pendingBackgroundBlob / backgroundRemoved の変化に反応
+		// ogColorTheme / backgroundPreviewUrl(背景の選択・削除) の変化に反応
 		void ogColorTheme;
-		void pendingBackgroundBlob;
-		void backgroundRemoved;
-		void previewBackgroundVersion;
+		void backgroundPreviewUrl;
 		scheduleOgPreview();
 	});
 
@@ -195,16 +169,24 @@
 	function onBackgroundChange(blob: Blob) {
 		pendingBackgroundBlob = blob;
 		backgroundRemoved = false;
-		previewBackgroundVersion += 1;
-		if (backgroundPreviewUrl && backgroundPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(backgroundPreviewUrl);
 		backgroundPreviewUrl = URL.createObjectURL(blob);
 	}
 
 	function onBackgroundRemove() {
 		pendingBackgroundBlob = null;
 		backgroundRemoved = true;
-		previewBackgroundVersion += 1;
 		backgroundPreviewUrl = null;
+	}
+
+	// 保存した設定で箱のOGP画像を描画してR2へ置く(/api/og/u/... はそれを配信する)。
+	// 失敗しても設定の保存自体は成功しているので、表示側のフォールバック(背景なし)に任せる。
+	async function publishBoxOgImage() {
+		try {
+			const { publishOgImage } = await import('$lib/client/og.js');
+			await publishOgImage(data.user.handle);
+		} catch (e) {
+			console.error('Failed to publish OGP image', e);
+		}
 	}
 
 	const handleBoxSettingsSubmit: SubmitFunction = ({ formData }) => {
@@ -237,15 +219,9 @@
 					boxName = nextBoxName ?? '';
 					lastSavedRequireNamedEnabled = nextRequireNamedEnabled;
 					lastSavedOgColorTheme = ogColorTheme;
-					if (backgroundRemoved) {
-						cachedExistingBackgroundBlob = null;
-						cachedExistingBackgroundUrl = null;
-					} else if (pendingBackgroundBlob) {
-						cachedExistingBackgroundBlob = pendingBackgroundBlob;
-						cachedExistingBackgroundUrl = backgroundPreviewUrl;
-					}
 					pendingBackgroundBlob = null;
 					backgroundRemoved = false;
+					await publishBoxOgImage();
 					boxSettingsSaved = true;
 				} catch (e) {
 					console.error('Failed to save box settings', e);

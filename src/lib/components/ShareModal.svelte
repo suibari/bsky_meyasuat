@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { xShareUrl } from '$lib/utils/share.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	let {
 		ogImageUrl,
+		messageId,
 		shareUrl,
 		onClose,
 		title,
@@ -15,6 +17,7 @@
 		embedDescription
 	}: {
 		ogImageUrl: string;
+		messageId?: string;
 		shareUrl: string;
 		onClose: () => void;
 		title?: string;
@@ -33,6 +36,39 @@
 	let posting = $state(false);
 	let postResult = $state<{ postUrl?: string } | null>(null);
 	let postError = $state(false);
+	let imageSrc = $state<string | null>(null);
+	let ogImage: Promise<Blob> | null = null;
+
+	// 開いたときにOGP画像をブラウザで生成してR2へ保存する。これでX等のクローラーが
+	// /api/og/... を取りに来てもサーバーで描画せずに済む(WorkersのCPU上限対策)。
+	// 生成に失敗したらサーバーの画像(背景なしのフォールバックになりうる)を表示・投稿に使う。
+	async function loadOgImage(): Promise<Blob> {
+		try {
+			const { publishOgImage } = await import('$lib/client/og.js');
+			return await publishOgImage(handle, messageId);
+		} catch (e) {
+			console.error('Failed to publish OGP image', e);
+			const res = await fetch(ogImageUrl);
+			if (!res.ok) throw new Error('Failed to fetch OGP image');
+			return await res.blob();
+		}
+	}
+
+	onMount(() => {
+		let objectUrl: string | null = null;
+		ogImage = loadOgImage();
+		ogImage
+			.then((blob) => {
+				objectUrl = URL.createObjectURL(blob);
+				imageSrc = objectUrl;
+			})
+			.catch(() => {
+				imageSrc = ogImageUrl;
+			});
+		return () => {
+			if (objectUrl) URL.revokeObjectURL(objectUrl);
+		};
+	});
 
 	async function copyShareLink() {
 		await navigator.clipboard.writeText(shareUrl);
@@ -48,7 +84,7 @@
 			const { postShareToBluesky } = await import('$lib/client/oauthClient.js');
 			const result = await postShareToBluesky(appUrl, did, postText, {
 				url: shareUrl,
-				imageUrl: ogImageUrl,
+				image: await (ogImage ?? loadOgImage()),
 				title: embedTitle,
 				description: embedDescription
 			});
@@ -81,15 +117,17 @@
 			{#if !imageLoaded}
 				<div class="absolute inset-0 animate-pulse bg-slate-700"></div>
 			{/if}
-			<img
-				src={ogImageUrl}
-				alt="OGP"
-				onload={() => imageLoaded = true}
-				onerror={() => imageLoaded = true}
-				class="w-full h-full object-cover transition-opacity duration-300"
-				class:opacity-0={!imageLoaded}
-				class:opacity-100={imageLoaded}
-			/>
+			{#if imageSrc}
+				<img
+					src={imageSrc}
+					alt="OGP"
+					onload={() => imageLoaded = true}
+					onerror={() => imageLoaded = true}
+					class="w-full h-full object-cover transition-opacity duration-300"
+					class:opacity-0={!imageLoaded}
+					class:opacity-100={imageLoaded}
+				/>
+			{/if}
 		</div>
 
 		<div class="mb-4">

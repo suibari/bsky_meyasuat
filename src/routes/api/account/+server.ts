@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { getCreatorImageKeys, deleteBoxAndRelatedData } from '$lib/server/db.js';
-import { deleteManyFromR2 } from '$lib/server/r2.js';
+import { deleteManyFromR2, deleteR2Prefix, ogImagePrefix } from '$lib/server/r2.js';
 import { cookieName, clearCookieOptions } from '$lib/server/session.js';
 
 // 質問箱（アカウント）を削除する。
@@ -16,6 +16,8 @@ export const DELETE: RequestHandler = async ({ locals, platform }) => {
 	// 1. 受信メッセージに紐づくR2画像を削除
 	const imageKeys = await getCreatorImageKeys(env, did);
 	await deleteManyFromR2(env, imageKeys);
+	// ブラウザで事前生成して保存したOGP画像も削除
+	await deleteR2Prefix(env, ogImagePrefix(did));
 
 	// 2. 箱本体と関連データ（受信メッセージ・rate_limit_log・sessions・users）を削除
 	// 自分が他人の箱へ送った質問は、クライアント側でPDSレコードを削除済みにする。
