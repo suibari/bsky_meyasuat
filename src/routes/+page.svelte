@@ -182,7 +182,7 @@
 </section>
 
 <!-- 使い方 -->
-<section class="max-w-3xl mx-auto px-4 py-16">
+<section class="site-container py-16">
 	<h2 class="text-xl font-bold text-slate-200 text-center mb-10">
 		{$t('landing.how_title')}
 	</h2>
@@ -218,7 +218,7 @@
 </section>
 
 <!-- 特徴 -->
-<section class="max-w-3xl mx-auto px-4 py-16">
+<section class="site-container py-16">
 	<h2 class="text-xl font-bold text-slate-200 text-center mb-10">
 		{$t('landing.features_title')}
 	</h2>

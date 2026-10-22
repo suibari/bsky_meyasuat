@@ -13,6 +13,10 @@
 @import '@fontsource/noto-sans-jp/400.css';
 @import '@fontsource/noto-sans-jp/700.css';
 
+@utility site-container {
+	@apply max-w-3xl mx-auto px-4;
+}
+
 @utility font-killgothic {
 	font-family: var(--font-title);
 	letter-spacing: 0.1em;

@@ -167,7 +167,7 @@
 	<meta name="twitter:image" content={ogUrl} />
 </svelte:head>
 
-<div class="max-w-lg mx-auto px-4 py-10">
+<div class="site-container py-10">
 	<!-- 質問+回答 -->
 	<div class="mb-4">
 		<QACard
