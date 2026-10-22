@@ -107,6 +107,28 @@ export type ShareEmbedResult = {
 	postUrl: string | undefined;
 };
 
+// app.bsky.embed.external の thumb の maxSize(lexicon定義、2026-10時点で 1,000,000 bytes)。
+// 画像添付(app.bsky.embed.images)の上限とは別で、変更されうるので最新の lexicon を確認して更新すること。
+export const EXTERNAL_THUMB_MAX_BYTES = 1_000_000;
+
+// OGP画像(PNG)は背景写真入りだと1MB近くになるため、上限を超える場合だけJPEGへ再エンコードして収める。
+// 上限内ならPNGのまま(劣化なし)で使う。
+export async function fitExternalThumbBlob(blob: Blob, maxBytes = EXTERNAL_THUMB_MAX_BYTES): Promise<Blob> {
+	if (blob.size <= maxBytes) return blob;
+	const bitmap = await createImageBitmap(blob);
+	const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+	const ctx = canvas.getContext('2d')!;
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, bitmap.width, bitmap.height);
+	ctx.drawImage(bitmap, 0, 0);
+	bitmap.close();
+	for (const quality of [0.92, 0.85, 0.7, 0.5]) {
+		const jpeg = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+		if (jpeg.size <= maxBytes) return jpeg;
+	}
+	throw new Error('OGP image exceeds Bluesky thumbnail size limit');
+}
+
 export async function postShareToBluesky(
 	appUrl: string,
 	did: string,
@@ -117,7 +139,7 @@ export async function postShareToBluesky(
 
 	const res = await fetch(embed.imageUrl);
 	if (!res.ok) throw new Error('Failed to fetch OGP image');
-	const blob = await res.blob();
+	const blob = await fitExternalThumbBlob(await res.blob());
 	const up = await agent.uploadBlob(blob, { encoding: blob.type || 'image/png' });
 
 	const created = await agent.post({

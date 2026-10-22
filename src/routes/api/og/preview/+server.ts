@@ -23,10 +23,6 @@ async function fileToDataUri(file: File): Promise<string> {
 	return `data:${file.type};base64,${bytesToBase64(buf)}`;
 }
 
-function pngToDataUri(png: Uint8Array): string {
-	return `data:image/png;base64,${bytesToBase64(png)}`;
-}
-
 export const POST: RequestHandler = async ({ request, platform, locals, url }) => {
 	const env = platform?.env;
 	if (!env || !locals.user) error(401, 'Unauthorized');
@@ -39,7 +35,9 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 	const fd = await request.formData();
 	const colorTheme = (fd.get('colorTheme') as string | null) ?? null;
 	const rawVariant = fd.get('variant');
-	const variant = rawVariant === 'message' || rawVariant === 'both' ? rawVariant : 'box';
+	// 1リクエストで生成するのは1枚だけにする(背景ありの描画は重く、2枚まとめるとWorkersのCPU上限を超えやすい)。
+	// box/message 両方が必要なクライアントは並列に2リクエスト送る。
+	const variant = rawVariant === 'message' ? 'message' : 'box';
 	const backgroundFile = fd.get('background');
 
 	let backgroundImageDataUri: string | null = null;
@@ -58,10 +56,10 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 
 	const name = user.displayName?.trim() || user.handle;
 	const boxName = user.boxName?.trim() || 'めやすばこ';
-	const avatarDataUri = user.avatarUrl ? await fetchImageAsDataUri(user.avatarUrl) : null;
+	const avatarDataUri = variant === 'box' && user.avatarUrl ? await fetchImageAsDataUri(user.avatarUrl) : null;
 
-	const buildNode = (target: 'box' | 'message') =>
-		target === 'message'
+	const node =
+		variant === 'message'
 			? buildMessageOgSvgNode({
 				body: 'これはプレビュー用のサンプル質問文です。',
 				sender: null,
@@ -83,24 +81,7 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 				backgroundImageDataUri
 			});
 
-	if (variant === 'both') {
-		const [boxPng, messagePng] = await Promise.all([
-			renderOgPng(buildNode('box'), fonts),
-			renderOgPng(buildNode('message'), fonts)
-		]);
-
-		return new Response(JSON.stringify({
-			box: pngToDataUri(boxPng),
-			message: pngToDataUri(messagePng)
-		}), {
-			headers: {
-				'Content-Type': 'application/json',
-				'Cache-Control': 'no-store'
-			}
-		});
-	}
-
-	const png = await renderOgPng(buildNode(variant), fonts);
+	const png = await renderOgPng(node, fonts);
 
 	return new Response(png.buffer as ArrayBuffer, {
 		headers: {

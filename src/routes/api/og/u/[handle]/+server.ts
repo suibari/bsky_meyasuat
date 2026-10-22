@@ -1,13 +1,21 @@
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 import { resolveCreatorByHandle } from '$lib/server/db.js';
-import { buildBlobCdnThumbUrl } from '$lib/server/messageImages.js';
+import { buildBlobCdnUrl } from '$lib/server/messageImages.js';
 import { getOgTheme } from '$lib/theme.js';
 import { ensureInit, loadFonts, loadIcon, fetchImageAsDataUri, buildUserOgSvgNode, renderOgPng } from '$lib/server/og.js';
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const env = platform?.env;
 	if (!env) error(503, 'Service unavailable');
+	// 生成はCPU負荷が高い(背景画像ありで数百ms〜)ため、URL(?v=ogVersion込み)単位でエッジキャッシュする。
+	// Pages FunctionsのレスポンスはCache-Controlだけではキャッシュされないので Cache API を使う。
+	const edgeCache = platform.caches.default;
+	const cacheKey = url.toString();
+	const cached = await edgeCache.match(cacheKey as any);
+	if (cached) {
+		return cached as unknown as Response;
+	}
 
 	const creator = await resolveCreatorByHandle(env, params.handle);
 	if (!creator) error(404, 'Not found');
@@ -23,7 +31,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 	const [avatarDataUri, backgroundImageDataUri] = await Promise.all([
 		creator.avatarUrl ? fetchImageAsDataUri(creator.avatarUrl) : Promise.resolve<string | null>(null),
 		creator.backgroundImageCid
-			? fetchImageAsDataUri(buildBlobCdnThumbUrl(creator.did, creator.backgroundImageCid))
+			? fetchImageAsDataUri(buildBlobCdnUrl(creator.did, creator.backgroundImageCid))
 			: Promise.resolve<string | null>(null)
 	]);
 	const icon = await loadIcon(appUrl, theme.flat.logoTitle);
@@ -41,11 +49,17 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 		fonts
 	);
 
-	return new Response(png.buffer as ArrayBuffer, {
+	// 背景画像の取得に失敗(タイムアウト等)した場合は背景なしで描画されるため、
+	// その結果を長期キャッシュすると背景が戻ったように見える。短命にしてエッジキャッシュもしない。
+	const degraded = !!creator.backgroundImageCid && !backgroundImageDataUri;
+	const response = new Response(png.buffer as ArrayBuffer, {
 		headers: {
 			'Content-Type': 'image/png',
-			'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+			'Cache-Control': degraded ? 'public, max-age=60' : 'public, max-age=86400, stale-while-revalidate=604800',
 			'Access-Control-Allow-Origin': '*'
 		}
 	});
+
+	if (!degraded) platform.context.waitUntil(edgeCache.put(cacheKey as any, response.clone() as any));
+	return response;
 };

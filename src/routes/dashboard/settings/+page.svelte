@@ -104,10 +104,12 @@
 		return `${ogColorTheme}:${backgroundKey}`;
 	}
 
-	async function fetchPreview(backgroundBlob: Blob | null, signal: AbortSignal): Promise<{ box: string; message: string }> {
+	// サーバー側は1リクエスト1枚しか生成しない(WorkersのCPU上限対策)ため、box/message を並列に取得する。
+	// 返すobject URLは previewCache に保持して使い回すので revoke しない。
+	async function fetchPreviewVariant(variant: 'box' | 'message', backgroundBlob: Blob | null, signal: AbortSignal): Promise<string> {
 		const fd = new FormData();
 		fd.set('colorTheme', ogColorTheme);
-		fd.set('variant', 'both');
+		fd.set('variant', variant);
 		if (backgroundBlob) fd.set('background', backgroundBlob, 'background.jpg');
 		const res = await fetch('/api/og/preview', { method: 'POST', body: fd, signal });
 		if (!res.ok) {
@@ -115,7 +117,15 @@
 			(err as Error & { status?: number }).status = res.status;
 			throw err;
 		}
-		return await res.json() as { box: string; message: string };
+		return URL.createObjectURL(await res.blob());
+	}
+
+	async function fetchPreview(backgroundBlob: Blob | null, signal: AbortSignal): Promise<{ box: string; message: string }> {
+		const [box, message] = await Promise.all([
+			fetchPreviewVariant('box', backgroundBlob, signal),
+			fetchPreviewVariant('message', backgroundBlob, signal)
+		]);
+		return { box, message };
 	}
 
 	async function refreshOgPreview() {
