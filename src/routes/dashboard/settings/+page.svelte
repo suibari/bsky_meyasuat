@@ -339,7 +339,7 @@
 	<title>{$t('settings.title')} - {$t('app.name')}</title>
 </svelte:head>
 
-<div class="max-w-lg mx-auto px-4 py-8">
+<div class="site-container py-8">
 	<h1 class="text-xl font-bold text-slate-100 mb-6">{$t('settings.title')}</h1>
 
 	<!-- めやすばこの設定 -->

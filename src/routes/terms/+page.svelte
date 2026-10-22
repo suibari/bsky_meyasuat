@@ -13,7 +13,7 @@
 	<title>{$t('terms.title')} - {$t('app.name')}</title>
 </svelte:head>
 
-<article class="max-w-3xl mx-auto px-4 py-12">
+<article class="site-container py-12">
 	<h1 class="text-2xl font-bold text-slate-100">{$t('terms.title')}</h1>
 	<p class="mt-2 text-xs text-slate-400">{$t('terms.effective_date')}</p>
 

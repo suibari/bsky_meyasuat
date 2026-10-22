@@ -269,7 +269,7 @@
 	<title>{$t('dashboard.page_title', { values: { box: boxName } })} - {$t('app.name')}</title>
 </svelte:head>
 
-<div class="max-w-3xl mx-auto px-4 py-8">
+<div class="site-container py-8">
 	<!-- URL シェア -->
 	<div class="bg-primary-950 border border-primary-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-3">
 		<div class="flex-1 min-w-0">

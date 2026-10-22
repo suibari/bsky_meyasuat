@@ -32,7 +32,7 @@
 
 <div class="min-h-screen flex flex-col">
 	<header class="border-b border-slate-800 bg-slate-900">
-		<div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+		<div class="site-container h-14 flex items-center justify-between">
 			<a href="/">
 				{#if lang === 'ja'}
 					<img src="/title-nav.png" alt={$t('app.name')} class="h-5 w-auto" />

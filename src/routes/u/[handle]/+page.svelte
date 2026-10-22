@@ -186,7 +186,7 @@
 	<meta name="twitter:image" content={ogUrl} />
 </svelte:head>
 
-<div class="max-w-lg mx-auto px-4 py-10">
+<div class="site-container py-10">
 	<!-- 募集者カード -->
 	<div class="flex items-center gap-3 mb-6">
 		<a href="https://bsky.app/profile/{data.creator.handle}" target="_blank" rel="noopener noreferrer">
